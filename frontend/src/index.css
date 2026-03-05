@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: theme('colors.touchCream');
+    color: theme('colors.touchDark');
+    font-family: 'Jost', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply tracking-wide font-light;
+    color: theme('colors.touchDark');
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .primary-btn {
+    background-color: theme('colors.touchPink');
+    color: theme('colors.touchDark');
+    @apply font-medium px-6 py-2.5 rounded-full hover:opacity-80 transition-all duration-300 shadow-sm hover:shadow active:scale-[0.98];
+  }
+
+  .secondary-btn {
+    background-color: theme('colors.touchSage');
+    color: white;
+    @apply font-medium px-6 py-2.5 rounded-full hover:opacity-90 transition-all duration-300 shadow-sm hover:shadow active:scale-[0.98];
+  }
+
+  .outline-btn {
+    border: 1px solid theme('colors.touchDark');
+    color: theme('colors.touchDark');
+    @apply font-medium px-6 py-2.5 rounded-full hover:bg-touchDark hover:text-white transition-all duration-300 active:scale-[0.98];
+  }
+
+  .rounded-card {
+    @apply rounded-xl;
+  }
+}
+
+.custom-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
