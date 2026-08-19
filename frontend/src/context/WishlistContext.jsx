@@ -1,71 +1,73 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useAuth } from './AuthContext';
 
-const WishlistContext = createContext();
+const WishlistContext = createContext(null);
 
-export const useWishlist = () => useContext(WishlistContext);
+export const useWishlist = () => {
+  const ctx = useContext(WishlistContext);
+  if (!ctx) throw new Error('useWishlist must be used inside WishlistProvider');
+  return ctx;
+};
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const wishlistKey = (uid) => uid ? `wishlist_${uid}` : 'wishlist_guest';
+const keyFor = (userId) => `touch.wishlist.${userId || 'guest'}`;
 
-const load = (key) => {
+const read = (userId) => {
+  try {
+    const raw = localStorage.getItem(keyFor(userId));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export function WishlistProvider({ children }) {
+  const { user } = useAuth();
+  const userId = user?._id || null;
+  const [items, setItems] = useState(() => read(null));
+
+  useEffect(() => setItems(read(userId)), [userId]);
+
+  useEffect(() => {
     try {
-        const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : [];
+      localStorage.setItem(keyFor(userId), JSON.stringify(items));
     } catch {
-        return [];
+      /* ignore */
     }
-};
+  }, [items, userId]);
 
-// ── Provider ──────────────────────────────────────────────────────────────────
-export const WishlistProvider = ({ children, userId }) => {
-    const [wishlistItems, setWishlistItems] = useState(() => load(wishlistKey(userId)));
+  const toggle = useCallback((product) => {
+    setItems((prev) => {
+      const exists = prev.some((p) => p._id === product._id);
+      if (exists) return prev.filter((p) => p._id !== product._id);
 
-    // Reload when userId changes (login / logout / switch account)
-    useEffect(() => {
-        setWishlistItems(load(wishlistKey(userId)));
-    }, [userId]);
+      // Store a slim snapshot — enough to render a card without refetching.
+      return [
+        ...prev,
+        {
+          _id: product._id,
+          slug: product.slug,
+          name: product.name,
+          price: product.price,
+          mrp: product.mrp,
+          images: product.images?.slice(0, 1) || [],
+          totalStock: product.totalStock,
+          brand: product.brand,
+        },
+      ];
+    });
+  }, []);
 
-    // Persist on every change
-    useEffect(() => {
-        localStorage.setItem(wishlistKey(userId), JSON.stringify(wishlistItems));
-    }, [wishlistItems, userId]);
+  const remove = useCallback((productId) => {
+    setItems((prev) => prev.filter((p) => p._id !== productId));
+  }, []);
 
-    const addToWishlist = (product) => {
-        setWishlistItems((prev) => {
-            if (!prev.find(item => (item._id || item.id) === (product._id || product.id))) {
-                return [...prev, product];
-            }
-            return prev;
-        });
-    };
+  const has = useCallback((productId) => items.some((p) => p._id === productId), [items]);
 
-    const removeFromWishlist = (productId) => {
-        setWishlistItems((prev) => prev.filter(item => (item._id || item.id) !== productId));
-    };
+  const value = useMemo(
+    () => ({ items, count: items.length, toggle, remove, has, clear: () => setItems([]) }),
+    [items, toggle, remove, has]
+  );
 
-    const toggleWishlist = (product) => {
-        const id = product._id || product.id;
-        setWishlistItems((prev) => {
-            const exists = prev.find(item => (item._id || item.id) === id);
-            return exists
-                ? prev.filter(item => (item._id || item.id) !== id)
-                : [...prev, product];
-        });
-    };
-
-    const isInWishlist = (productId) =>
-        wishlistItems.some(item => (item._id || item.id) === productId);
-
-    return (
-        <WishlistContext.Provider value={{
-            wishlistItems,
-            addToWishlist,
-            removeFromWishlist,
-            toggleWishlist,
-            isInWishlist,
-            wishlistCount: wishlistItems.length,
-        }}>
-            {children}
-        </WishlistContext.Provider>
-    );
-};
+  return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;
+}

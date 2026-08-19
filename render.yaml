@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Render blueprint — TOUCH
+#
+#  Deliberately simple: one Node web service for the API, one static site for
+#  the storefront, and MongoDB Atlas (free M0) for data. No containers, no
+#  orchestration — appropriate for a small business and cheap to run.
+#
+#  Secrets are marked `sync: false`, which means Render prompts for them in the
+#  dashboard instead of storing them in this file. Nothing sensitive is committed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── API ────────────────────────────────────────────────────────────────────
+  - type: web
+    name: touch-api
+    runtime: node
+    plan: free
+    region: singapore          # closest region to an Indian customer base
+    rootDir: backend
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000           # Render injects this; declared for clarity
+
+      # Exactly one proxy sits in front of a Render web service.
+      - key: TRUST_PROXY
+        value: "1"
+
+      # Cross-site cookie: the storefront and API are on different hosts.
+      - key: COOKIE_SAMESITE
+        value: none
+
+      # ── Secrets — entered in the Render dashboard, never committed ──
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: CLIENT_URL
+        sync: false            # e.g. https://touch-store.onrender.com
+
+      # ── Optional integrations ──
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: TOUCH
+
+      # ── Storefront settings (safe to commit — business config, not secrets) ──
+      - key: STORE_NAME
+        value: TOUCH
+      - key: STORE_CURRENCY
+        value: INR
+      - key: FREE_SHIPPING_THRESHOLD
+        value: "1499"
+      - key: SHIPPING_FLAT_RATE
+        value: "79"
+      - key: TAX_RATE
+        value: "0.05"
+      - key: TAX_INCLUSIVE
+        value: "true"
+      - key: COD_ENABLED
+        value: "true"
+      - key: COD_MAX_ORDER_VALUE
+        value: "20000"
+      - key: LOW_STOCK_THRESHOLD
+        value: "5"
+      - key: LOG_LEVEL
+        value: info
+
+  # ── Storefront ─────────────────────────────────────────────────────────────
+  - type: web
+    name: touch-store
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      # Full API origin, because the two services are on different hosts.
+      # e.g. https://touch-api.onrender.com/api
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # SPA fallback: every unmatched path must serve index.html so that a
+      # deep link like /product/amara-linen-midi-dress works on a hard refresh.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

@@ -43,3 +43,6 @@ Thumbs.db
 *.local
 *.tgz
 .npm
+
+# Vite config HMR temp files
+*.timestamp-*.mjs

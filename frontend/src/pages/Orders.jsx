@@ -1,310 +1,426 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
-    PackageSearch, ShoppingBag, CheckCircle, Clock,
-    Banknote, CreditCard, ArrowRight, ChevronRight, Truck, ArrowLeft
+  Package, ChevronRight, ArrowLeft, MapPin, CreditCard, XCircle, CheckCircle2,
 } from 'lucide-react';
-import api from '../services/api';
+import { orderApi } from '../api/endpoints';
+import { useFetch, useDocumentMeta } from '../hooks';
+import { useToast } from '../context/ToastContext';
+import {
+  Button, EmptyState, Skeleton, Alert, Pagination, ConfirmDialog, Breadcrumbs,
+} from '../components/ui';
+import {
+  formatPriceExact, formatDate, formatDateTime,
+  ORDER_STATUS_LABEL, ORDER_STATUS_TONE, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE,
+} from '../utils/format';
 
-// ── Status badge helpers ────────────────────────────────────────────────────
-const PaymentBadge = ({ isPaid, method }) => {
-    if (isPaid) {
-        return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg border border-emerald-100">
-                <CheckCircle size={11} /> Paid
-            </span>
-        );
-    }
-    return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-600 text-xs font-semibold rounded-lg border border-amber-100">
-            {method === 'Cash on Delivery'
-                ? <Banknote size={11} />
-                : <CreditCard size={11} />
-            }
-            {method === 'Cash on Delivery' ? 'COD' : 'Pending'}
-        </span>
-    );
-};
+/* ═════════════════════════ Order history ═════════════════════════════════ */
 
-const DeliveryBadge = ({ isDelivered }) => {
-    if (isDelivered) {
-        return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg border border-emerald-100">
-                <Truck size={11} /> Delivered
-            </span>
-        );
-    }
-    return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-500 text-xs font-semibold rounded-lg border border-indigo-100">
-            <Clock size={11} /> Processing
-        </span>
-    );
-};
+export function OrderHistory() {
+  const [page, setPage] = useState(1);
+  useDocumentMeta({ title: 'Your orders', noIndex: true });
 
-// ── Skeleton row ────────────────────────────────────────────────────────────
-const SkeletonRow = () => (
-    <tr className="border-b border-gray-50">
-        {[...Array(6)].map((_, i) => (
-            <td key={i} className="px-5 py-4">
-                <div className="h-4 bg-gray-100 rounded-lg animate-pulse w-3/4" />
-            </td>
-        ))}
-    </tr>
-);
+  const { data, meta, loading, error } = useFetch(() => orderApi.mine({ page, limit: 10 }), [page]);
+  const orders = data?.orders || [];
 
-// ── Main Page ───────────────────────────────────────────────────────────────
-const Orders = () => {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+  return (
+    <div className="shell py-10 sm:py-14">
+      <h1 className="mb-9 text-3xl sm:text-4xl">Your orders</h1>
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            try {
-                const { data } = await api.get('/orders/my/orders');
-                setOrders(data);
-            } catch (err) {
-                setError(err.response?.data?.message || 'Failed to load orders. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchOrders();
-    }, []);
+      {error && <Alert tone="error">{error}</Alert>}
 
-    const formatDate = (d) =>
-        d
-            ? new Date(d).toLocaleDateString('en-IN', {
-                day: '2-digit', month: 'short', year: 'numeric',
-            })
-            : '—';
-
-    // ── Empty State ──────────────────────────────────────────────────────────
-    const EmptyState = () => (
-        <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
-            <div className="w-24 h-24 bg-touchCream rounded-full flex items-center justify-center mb-6 shadow-inner">
-                <PackageSearch size={40} className="text-touchPink/60" />
-            </div>
-            <h2 className="text-2xl font-serif text-touchDark mb-3">No Orders Yet</h2>
-            <p className="text-touchDark/50 font-light tracking-wide text-sm mb-8 max-w-xs">
-                You have not placed any orders yet. Start shopping to see your orders here.
-            </p>
-            <Link
-                to="/"
-                className="inline-flex items-center gap-2 bg-touchDark text-white px-8 py-3.5 rounded-xl font-medium hover:bg-touchDark/90 transition-all active:scale-[0.98] shadow-sm"
-            >
-                Start Shopping <ArrowRight size={16} />
-            </Link>
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
-    );
-
-    return (
-        <div className="max-w-6xl mx-auto py-10 px-4 w-full">
-
-            {/* Page Header */}
-            <div className="flex items-center gap-4 mb-8 pb-4 border-b border-touchPink/20">
-                <button
-                    onClick={() => navigate(-1)}
-                    className="flex items-center justify-center w-9 h-9 rounded-xl border border-touchPink/20 text-touchDark/50 hover:text-touchPink hover:border-touchPink/40 hover:bg-touchPink/5 transition-all shrink-0"
-                    aria-label="Go back"
-                >
-                    <ArrowLeft size={17} />
-                </button>
-                <div className="flex-1">
-                    <h1 className="text-3xl font-serif text-touchDark tracking-wide">My Orders</h1>
-                    <p className="text-touchDark/50 font-light text-sm mt-1 tracking-wide">
-                        {!loading && !error && `${orders.length} order${orders.length !== 1 ? 's' : ''} placed`}
-                    </p>
-                </div>
+      ) : orders.length === 0 ? (
+        <EmptyState
+          icon={Package}
+          title="No orders yet"
+          description="Once you place an order it will appear here with its status."
+          action={<Button to="/shop" size="lg">Start shopping</Button>}
+        />
+      ) : (
+        <>
+          <ul className="space-y-4">
+            {orders.map((order) => (
+              <li key={order._id}>
                 <Link
-                    to="/"
-                    className="hidden sm:inline-flex items-center gap-2 text-sm text-touchDark/60 hover:text-touchPink font-medium transition-colors"
+                  to={`/orders/${order._id}`}
+                  className="group block rounded-card border border-line bg-paper-raised p-5
+                             transition-colors hover:border-line-strong sm:p-6"
                 >
-                    <ShoppingBag size={16} /> Continue Shopping
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="font-mono text-xs text-ink-muted">{order.orderNumber}</p>
+                      <p className="mt-1 text-xs text-ink-faint">{formatDate(order.createdAt)}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={ORDER_STATUS_TONE[order.status]}>
+                        {ORDER_STATUS_LABEL[order.status]}
+                      </span>
+                      <span className={PAYMENT_STATUS_TONE[order.payment?.status]}>
+                        {order.payment?.method === 'COD' && order.payment?.status === 'pending'
+                          ? 'Cash on delivery'
+                          : PAYMENT_STATUS_LABEL[order.payment?.status]}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-end justify-between gap-4">
+                    <div className="flex -space-x-2">
+                      {order.items.slice(0, 4).map((item, i) => (
+                        <div
+                           
+                          key={i}
+                          className="h-14 w-11 overflow-hidden border border-paper-raised bg-paper-sunken"
+                        >
+                          {item.image && (
+                            <img src={item.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                          )}
+                        </div>
+                      ))}
+                      {order.items.length > 4 && (
+                        <div className="flex h-14 w-11 items-center justify-center border border-paper-raised
+                                        bg-paper-sunken text-2xs text-ink-muted">
+                          +{order.items.length - 4}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-right">
+                      <div>
+                        <p className="text-2xs uppercase tracking-wider2 text-ink-faint">Total</p>
+                        <p className="text-sm font-medium">{formatPriceExact(order.pricing.grandTotal)}</p>
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        className="text-ink-faint transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
                 </Link>
+              </li>
+            ))}
+          </ul>
+
+          {meta?.totalPages > 1 && (
+            <Pagination page={page} totalPages={meta.totalPages} onChange={setPage} className="mt-10" />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ═════════════════════════ Order detail ══════════════════════════════════ */
+
+const TIMELINE = ['confirmed', 'packed', 'shipped', 'delivered'];
+
+export function OrderDetail() {
+  const { id } = useParams();
+  const toast = useToast();
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const { data, loading, error, refetch } = useFetch(() => orderApi.get(id), [id]);
+  const order = data?.order;
+
+  useDocumentMeta({ title: order ? `Order ${order.orderNumber}` : 'Order', noIndex: true });
+
+  const cancel = async () => {
+    setCancelling(true);
+    try {
+      await orderApi.cancel(id, 'Cancelled by customer');
+      toast.success('Your order has been cancelled.');
+      setCancelOpen(false);
+      refetch();
+    } catch (err) {
+      toast.error(err.friendlyMessage);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="shell py-10">
+        <Skeleton className="mb-6 h-8 w-56" />
+        <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+          <Skeleton className="h-80 w-full" />
+          <Skeleton className="h-56 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="shell">
+        <EmptyState
+          icon={Package}
+          title="Order not found"
+          description="We could not find this order on your account."
+          action={<Button to="/orders">Back to orders</Button>}
+        />
+      </div>
+    );
+  }
+
+  const isCancelled = order.status === 'cancelled';
+  const isRefunded = order.status === 'refunded';
+  const currentStep = TIMELINE.indexOf(order.status);
+  const canCancel = ['pending', 'confirmed'].includes(order.status);
+
+  return (
+    <div className="shell py-10 sm:py-14">
+      <Breadcrumbs items={[{ label: 'Orders', to: '/orders' }, { label: order.orderNumber }]} />
+
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl">Order {order.orderNumber}</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">Placed {formatDateTime(order.createdAt)}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={ORDER_STATUS_TONE[order.status]}>{ORDER_STATUS_LABEL[order.status]}</span>
+          <span className={PAYMENT_STATUS_TONE[order.payment?.status]}>
+            {PAYMENT_STATUS_LABEL[order.payment?.status]}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_20rem] lg:gap-12">
+        <div className="space-y-6">
+          {/* ── Timeline ── */}
+          {!isCancelled && !isRefunded && (
+            <div className="card-pad">
+              <h2 className="mb-6 text-sm font-medium">Progress</h2>
+              <ol className="relative flex justify-between">
+                <span className="absolute left-0 right-0 top-3 h-px bg-line" aria-hidden="true" />
+                <span
+                  className="absolute left-0 top-3 h-px bg-ink transition-all duration-500"
+                  style={{ width: `${Math.max(0, (currentStep / (TIMELINE.length - 1)) * 100)}%` }}
+                  aria-hidden="true"
+                />
+                {TIMELINE.map((s, i) => {
+                  const reached = i <= currentStep;
+                  return (
+                    <li key={s} className="relative z-10 flex flex-col items-center gap-2">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                          reached ? 'border-ink bg-ink text-paper' : 'border-line bg-paper-raised'
+                        }`}
+                      >
+                        {reached && <CheckCircle2 size={12} aria-hidden="true" />}
+                      </span>
+                      <span className={`text-2xs uppercase tracking-wider2 ${
+                        reached ? 'text-ink' : 'text-ink-faint'
+                      }`}>
+                        {ORDER_STATUS_LABEL[s]}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {order.trackingNumber && (
+                <p className="mt-6 border-t border-line pt-4 text-sm text-ink-muted">
+                  Tracking reference: <span className="font-medium text-ink">{order.trackingNumber}</span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {isCancelled && (
+            <Alert tone="warning" title="This order was cancelled">
+              {order.cancellation?.reason}
+              {order.cancellation?.at && ` · ${formatDateTime(order.cancellation.at)}`}
+              {order.refund?.status === 'pending' &&
+                ' A refund has been initiated and will reach your account within 5–7 business days.'}
+            </Alert>
+          )}
+
+          {isRefunded && (
+            <Alert tone="info" title="This order was refunded">
+              {formatPriceExact(order.refund?.amount || order.pricing.grandTotal)} was refunded
+              {order.refund?.at && ` on ${formatDate(order.refund.at)}`}.
+            </Alert>
+          )}
+
+          {/* ── Items ── */}
+          <div className="card">
+            <h2 className="border-b border-line px-5 py-4 text-sm font-medium sm:px-6">
+              Items ({order.items.reduce((s, i) => s + i.qty, 0)})
+            </h2>
+            <ul className="divide-y divide-line">
+              {order.items.map((item, i) => (
+                 
+                <li key={i} className="flex gap-4 p-5 sm:p-6">
+                  <div className="aspect-[3/4] w-16 shrink-0 overflow-hidden bg-paper-sunken sm:w-20">
+                    {item.image && (
+                      <img src={item.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm leading-snug">
+                        {item.slug ? (
+                          <Link to={`/product/${item.slug}`} className="hover:text-clay-deep">{item.name}</Link>
+                        ) : item.name}
+                      </p>
+                      <p className="mt-1 text-xs text-ink-muted">Size {item.size} · Qty {item.qty}</p>
+                      <p className="mt-0.5 text-2xs text-ink-faint">SKU {item.sku}</p>
+                    </div>
+                    <p className="text-sm font-medium">{formatPriceExact(item.lineTotal)}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* ── Address & payment ── */}
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="card-pad">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <MapPin size={15} className="text-clay" aria-hidden="true" /> Delivery address
+              </h2>
+              <p className="text-sm leading-relaxed text-ink-muted">
+                <span className="font-medium text-ink">{order.shippingAddress.fullName}</span><br />
+                {order.shippingAddress.line1}
+                {order.shippingAddress.line2 ? `, ${order.shippingAddress.line2}` : ''}<br />
+                {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}<br />
+                {order.shippingAddress.phone}
+              </p>
             </div>
 
-            {/* Error State */}
-            {error && (
-                <div className="bg-red-50 border border-red-100 text-red-600 text-sm px-5 py-4 rounded-2xl mb-6">
-                    {error}
-                </div>
-            )}
-
-            {/* Loading Skeleton */}
-            {loading && (
-                <div className="bg-white rounded-2xl border border-touchPink/10 shadow-sm overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-50/80 border-b border-gray-100">
-                                {['Order ID', 'Date', 'Total', 'Payment', 'Delivery', ''].map(h => (
-                                    <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/40 uppercase tracking-widest">
-                                        {h}
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[...Array(4)].map((_, i) => <SkeletonRow key={i} />)}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* Empty State */}
-            {!loading && !error && orders.length === 0 && (
-                <div className="bg-white rounded-3xl border border-touchPink/10 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-touchPink via-touchCream to-touchSage" />
-                    <EmptyState />
-                </div>
-            )}
-
-            {/* Orders Table — Desktop */}
-            {!loading && orders.length > 0 && (
-                <>
-                    {/* ── TABLE (md+) ── */}
-                    <div className="hidden md:block bg-white rounded-2xl border border-touchPink/10 shadow-sm overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-gray-50/80 border-b border-gray-100">
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Order ID</th>
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Date</th>
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Items</th>
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Total</th>
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Payment</th>
-                                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest">Delivery</th>
-                                    <th className="text-right px-5 py-3.5 text-xs font-semibold text-touchDark/50 uppercase tracking-widest"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {orders.map((order) => (
-                                    <tr
-                                        key={order._id}
-                                        className="hover:bg-touchCream/10 transition-colors group"
-                                    >
-                                        {/* Order ID */}
-                                        <td className="px-5 py-4">
-                                            <span className="font-mono text-xs text-touchDark/60 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">
-                                                #{order._id.slice(-8).toUpperCase()}
-                                            </span>
-                                        </td>
-
-                                        {/* Date */}
-                                        <td className="px-5 py-4 text-touchDark/60 text-xs">
-                                            {formatDate(order.createdAt)}
-                                        </td>
-
-                                        {/* Items count + thumbnail strip */}
-                                        <td className="px-5 py-4">
-                                            <div className="flex items-center gap-1">
-                                                {order.orderItems.slice(0, 3).map((item, i) => (
-                                                    <div
-                                                        key={i}
-                                                        className="w-9 h-9 bg-gray-50 rounded-lg border border-gray-100 overflow-hidden shrink-0"
-                                                    >
-                                                        <img
-                                                            src={item.image}
-                                                            alt={item.name}
-                                                            className="w-full h-full object-contain mix-blend-multiply"
-                                                        />
-                                                    </div>
-                                                ))}
-                                                {order.orderItems.length > 3 && (
-                                                    <span className="w-9 h-9 bg-touchCream/60 rounded-lg border border-touchPink/20 flex items-center justify-center text-xs text-touchDark/50 font-semibold shrink-0">
-                                                        +{order.orderItems.length - 3}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        {/* Total */}
-                                        <td className="px-5 py-4 font-semibold text-touchDark">
-                                            ₹{order.totalPrice?.toFixed(2)}
-                                        </td>
-
-                                        {/* Payment Status */}
-                                        <td className="px-5 py-4">
-                                            <PaymentBadge isPaid={order.isPaid} method={order.paymentMethod} />
-                                        </td>
-
-                                        {/* Delivery Status */}
-                                        <td className="px-5 py-4">
-                                            <DeliveryBadge isDelivered={order.isDelivered} />
-                                        </td>
-
-                                        {/* View Details */}
-                                        <td className="px-5 py-4 text-right">
-                                            <Link
-                                                to={`/order/${order._id}`}
-                                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-touchDark text-white text-xs font-medium rounded-xl hover:bg-touchDark/85 transition-all active:scale-[0.97] shadow-sm group-hover:shadow"
-                                            >
-                                                View <ChevronRight size={13} />
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* ── CARDS (mobile) ── */}
-                    <div className="md:hidden space-y-4">
-                        {orders.map((order) => (
-                            <div
-                                key={order._id}
-                                className="bg-white rounded-2xl border border-touchPink/10 shadow-sm overflow-hidden relative"
-                            >
-                                {/* Top accent */}
-                                <div className="h-0.5 w-full bg-gradient-to-r from-touchPink via-touchCream to-touchSage" />
-
-                                <div className="p-5">
-                                    {/* Header row */}
-                                    <div className="flex items-start justify-between gap-3 mb-4">
-                                        <div>
-                                            <span className="font-mono text-xs text-touchDark/50 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
-                                                #{order._id.slice(-8).toUpperCase()}
-                                            </span>
-                                            <p className="text-xs text-touchDark/40 mt-1.5">{formatDate(order.createdAt)}</p>
-                                        </div>
-                                        <p className="font-bold text-touchDark text-lg">₹{order.totalPrice?.toFixed(2)}</p>
-                                    </div>
-
-                                    {/* Item thumbnails */}
-                                    <div className="flex items-center gap-1.5 mb-4">
-                                        {order.orderItems.slice(0, 4).map((item, i) => (
-                                            <div key={i} className="w-11 h-11 bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
-                                                <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
-                                            </div>
-                                        ))}
-                                        {order.orderItems.length > 4 && (
-                                            <span className="w-11 h-11 bg-touchCream/60 rounded-xl flex items-center justify-center text-xs font-semibold text-touchDark/50">
-                                                +{order.orderItems.length - 4}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {/* Badges + CTA */}
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex gap-2 flex-wrap">
-                                            <PaymentBadge isPaid={order.isPaid} method={order.paymentMethod} />
-                                            <DeliveryBadge isDelivered={order.isDelivered} />
-                                        </div>
-                                        <Link
-                                            to={`/order/${order._id}`}
-                                            className="inline-flex items-center gap-1 px-4 py-2 bg-touchDark text-white text-xs font-medium rounded-xl hover:bg-touchDark/85 transition-all shrink-0"
-                                        >
-                                            View <ChevronRight size={12} />
-                                        </Link>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
-            )}
+            <div className="card-pad">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
+                <CreditCard size={15} className="text-clay" aria-hidden="true" /> Payment
+              </h2>
+              <p className="text-sm text-ink-muted">
+                {order.payment.method === 'COD' ? 'Cash on delivery' : 'Paid online (Razorpay)'}
+              </p>
+              {order.payment.paidAt && (
+                <p className="mt-1 text-xs text-ink-faint">Paid {formatDateTime(order.payment.paidAt)}</p>
+              )}
+              {order.payment.razorpayPaymentId && (
+                <p className="mt-1 font-mono text-2xs text-ink-faint">{order.payment.razorpayPaymentId}</p>
+              )}
+            </div>
+          </div>
         </div>
-    );
-};
 
-export default Orders;
+        {/* ── Summary ── */}
+        <div>
+          <div className="card-pad lg:sticky lg:top-24">
+            <h2 className="mb-5 text-sm font-medium">Summary</h2>
+            <dl className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">Subtotal</dt>
+                <dd>{formatPriceExact(order.pricing.itemsTotal)}</dd>
+              </div>
+              {order.pricing.discountTotal > 0 && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-ink-muted">
+                    Discount{order.coupon?.code ? ` · ${order.coupon.code}` : ''}
+                  </dt>
+                  <dd className="text-success">− {formatPriceExact(order.pricing.discountTotal)}</dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">Shipping</dt>
+                <dd>{order.pricing.shippingTotal === 0 ? 'Free' : formatPriceExact(order.pricing.shippingTotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-muted">
+                  GST{order.pricing.taxInclusive ? ' (included)' : ''}
+                </dt>
+                <dd>{formatPriceExact(order.pricing.taxTotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-4 border-t border-line pt-3">
+                <dt className="font-medium">Total</dt>
+                <dd className="text-base font-medium">{formatPriceExact(order.pricing.grandTotal)}</dd>
+              </div>
+            </dl>
+
+            {canCancel && (
+              <Button
+                variant="ghost"
+                fullWidth
+                className="mt-6"
+                onClick={() => setCancelOpen(true)}
+              >
+                <XCircle size={14} aria-hidden="true" /> Cancel order
+              </Button>
+            )}
+
+            <Button to="/orders" variant="quiet" fullWidth className="mt-2">
+              <ArrowLeft size={14} aria-hidden="true" /> All orders
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={cancel}
+        loading={cancelling}
+        title="Cancel this order?"
+        message="This cannot be undone. Any items will be returned to stock, and if you have already paid, a refund will be initiated."
+        confirmLabel="Yes, cancel order"
+        cancelLabel="Keep order"
+      />
+    </div>
+  );
+}
+
+/* ═════════════════════════ Confirmation ══════════════════════════════════ */
+
+export function OrderConfirmed() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { data, loading } = useFetch(() => orderApi.get(id), [id]);
+  const order = data?.order;
+
+  useDocumentMeta({ title: 'Order confirmed', noIndex: true });
+
+  return (
+    <div className="shell py-16 sm:py-24">
+      <div className="mx-auto max-w-lg text-center">
+        <div className="mx-auto mb-7 flex h-16 w-16 items-center justify-center rounded-full bg-success-faint">
+          <CheckCircle2 size={30} className="text-success" aria-hidden="true" />
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl">Thank you</h1>
+        <p className="mt-4 text-sm leading-relaxed text-ink-muted">
+          {loading
+            ? 'Confirming your order…'
+            : order
+              ? order.payment.method === 'COD'
+                ? 'Your order is confirmed. Please keep the exact amount ready for the delivery partner.'
+                : 'Your payment was received and your order is confirmed.'
+              : 'Your order has been placed.'}
+        </p>
+
+        {order && (
+          <div className="mt-8 rounded-card border border-line bg-paper-raised p-6 text-left">
+            <div className="flex items-center justify-between gap-4 border-b border-line pb-4">
+              <span className="text-xs uppercase tracking-wider2 text-ink-faint">Order number</span>
+              <span className="select-all font-mono text-sm">{order.orderNumber}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4 pt-4">
+              <span className="text-xs uppercase tracking-wider2 text-ink-faint">Total</span>
+              <span className="text-base font-medium">{formatPriceExact(order.pricing.grandTotal)}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button onClick={() => navigate(`/orders/${id}`)} size="lg">View order</Button>
+          <Button to="/shop" variant="secondary" size="lg">Continue shopping</Button>
+        </div>
+      </div>
+    </div>
+  );
+}

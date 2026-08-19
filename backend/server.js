@@ -1,42 +1,95 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const path = require('path');
+const config = require('./config/env');
+const logger = require('./utils/logger');
+const { connectDB, disconnectDB } = require('./config/db');
+const app = require('./app');
+const orderService = require('./services/orderService');
 
-dotenv.config();
+let server;
+let sweeper;
 
-const userRoutes = require('./routes/userRoutes');
-const productRoutes = require('./routes/productRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+/**
+ * Boot order matters: the database must be reachable *before* the port opens.
+ *
+ * Previously the server listened first and only logged a connection failure,
+ * so a broken instance would pass a health check while every request 500'd.
+ */
+async function start() {
+  try {
+    await connectDB();
+  } catch (err) {
+    logger.error('Could not connect to MongoDB — aborting startup', { message: err.message });
+    process.exit(1);
+  }
 
-const app = express();
+  server = app.listen(config.port, () => {
+    logger.info(`${config.store.name} API listening`, {
+      port: config.port,
+      env: config.env,
+      razorpay: config.razorpay.enabled,
+      cloudinary: config.cloudinary.enabled,
+      smtp: config.smtp.enabled,
+    });
+  });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+  server.headersTimeout = 65_000;
+  server.requestTimeout = 60_000;
 
-// Serve uploaded images as static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+  // Releases inventory held by abandoned online checkouts. Without this, an
+  // unpaid order would hold stock hostage indefinitely.
+  if (!config.isTest) {
+    const runSweep = () =>
+      orderService
+        .expireStalePendingPayments({ olderThanMinutes: 45 })
+        .catch((err) => logger.error('Stale order sweep failed', { message: err.message }));
 
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/upload', uploadRoutes);
+    sweeper = setInterval(runSweep, 15 * 60 * 1000);
+    sweeper.unref();
+    setTimeout(runSweep, 30_000).unref();
+  }
+}
 
-app.get('/', (req, res) => {
-  res.send('API is running...');
+/**
+ * Graceful shutdown: stop accepting new connections, let in-flight requests
+ * finish, then close the database. Without this, every deploy kills active
+ * checkouts mid-request.
+ */
+async function shutdown(signal) {
+  logger.info(`${signal} received — shutting down`);
+
+  if (sweeper) clearInterval(sweeper);
+
+  const forceExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, 15_000);
+  forceExit.unref();
+
+  try {
+    if (server) await new Promise((resolve) => server.close(resolve));
+    await disconnectDB();
+    logger.info('Shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    logger.error('Error during shutdown', { message: err.message });
+    process.exit(1);
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', {
+    message: reason instanceof Error ? reason.message : String(reason),
+  });
 });
 
-// Database connection
-const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ecommerce';
+process.on('uncaughtException', (err) => {
+  // The process is in an undefined state; log and let the platform restart it.
+  logger.error('Uncaught exception — exiting', { message: err.message, stack: err.stack });
+  process.exit(1);
+});
 
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log('MongoDB Connected');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((err) => console.log(err));
+start();
+
+module.exports = { start, shutdown };

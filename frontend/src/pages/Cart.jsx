@@ -1,137 +1,175 @@
-import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Trash2, Minus, Plus, ShoppingBag, AlertTriangle, ArrowRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { Trash2, Minus, Plus, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useDocumentMeta } from '../hooks';
+import OrderSummary from '../components/product/OrderSummary';
+import { Button, EmptyState, Alert } from '../components/ui';
+import { formatPrice, formatPriceExact, discountPercent } from '../utils/format';
 
-const Cart = () => {
-    const { cartItems, updateQuantity, removeFromCart, subtotal, total } = useCart();
+export default function Cart() {
+  const { items, updateQty, removeItem, hasStockIssue, pricing, pricingLoading } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
-    if (cartItems.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20">
-                <div className="w-32 h-32 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
-                    <Trash2 size={48} />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Your cart is empty</h2>
-                <p className="text-gray-500 mb-8">Looks like you haven't added anything to your cart yet.</p>
-                <Link to="/" className="bg-blue-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center gap-2">
-                    <ArrowLeft size={20} /> Continue Shopping
-                </Link>
-            </div>
-        );
-    }
+  useDocumentMeta({ title: 'Your bag', noIndex: true });
 
+  if (items.length === 0) {
     return (
-        <div className="py-2">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Shopping Cart ({cartItems.reduce((a, c) => a + c.qty, 0)})</h1>
-
-            <div className="flex flex-col lg:flex-row gap-8">
-                {/* Cart Items List */}
-                <div className="flex-1">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="p-6 border-b border-gray-100">
-                            {cartItems.map((item, idx) => {
-                                const cartItemId = item.cartItemId || (item.size ? `${item._id || item.id}-${item.size}` : String(item._id || item.id));
-                                return (
-                                    <div key={cartItemId} className={`flex flex-col sm:flex-row items-center gap-6 py-4 ${idx !== cartItems.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                                        <div className="w-24 h-24 bg-gray-50 rounded-lg p-2 flex shrink-0">
-                                            <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
-                                        </div>
-
-                                        <div className="flex-1 flex flex-col sm:flex-row w-full gap-4">
-                                            <div className="flex-1">
-                                                <h3 className="font-medium text-gray-900 line-clamp-2 mb-1">{item.name}</h3>
-                                                <p className="text-sm text-gray-500 mb-2">
-                                                    {item.brand || 'Premium Brand'}
-                                                    {item.size && <span className="ml-2 pl-2 border-l border-gray-300 font-medium text-gray-700">Size: {item.size}</span>}
-                                                </p>
-                                                <button
-                                                    onClick={() => removeFromCart(cartItemId)}
-                                                    className="text-red-500 text-sm font-medium flex items-center gap-1 hover:text-red-600 transition"
-                                                >
-                                                    <Trash2 size={16} /> Remove
-                                                </button>
-                                            </div>
-
-                                            <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 w-full sm:w-auto mt-4 sm:mt-0">
-                                                <span className="font-bold text-gray-900">₹{(Number(item.price) * item.qty).toFixed(2)}</span>
-
-                                                <div className="flex items-center border border-gray-200 rounded-lg bg-white">
-                                                    <button
-                                                        onClick={() => updateQuantity(cartItemId, item.qty - 1)}
-                                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition rounded-l-lg"
-                                                    >
-                                                        <Minus size={16} />
-                                                    </button>
-                                                    <span className="w-10 h-8 flex items-center justify-center font-medium text-gray-700 text-sm border-x border-gray-200">
-                                                        {item.qty}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => updateQuantity(cartItemId, item.qty + 1)}
-                                                        className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-gray-50 transition rounded-r-lg"
-                                                    >
-                                                        <Plus size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="p-4 bg-gray-50 flex justify-between items-center sm:hidden">
-                            <span className="font-medium text-gray-700">Subtotal:</span>
-                            <span className="font-bold text-gray-900">₹{subtotal.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Order Summary */}
-                <div className="w-full lg:w-80 shrink-0">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-24">
-                        <h2 className="text-lg font-bold text-gray-900 mb-4">Order Summary</h2>
-
-                        <div className="space-y-3 text-sm text-gray-600 mb-6">
-                            <div className="flex justify-between">
-                                <span>Subtotal</span>
-                                <span className="font-medium text-gray-900">₹{subtotal.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>Discount</span>
-                                <span className="text-green-500 font-medium">-₹0.00</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>Tax</span>
-                                <span className="font-medium text-gray-900">₹0.00</span>
-                            </div>
-                        </div>
-
-                        <div className="border-t border-gray-100 pt-4 mb-6">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-gray-900">Total</span>
-                                <span className="text-xl font-bold text-gray-900">₹{total.toFixed(2)}</span>
-                            </div>
-                            <p className="text-xs text-gray-500 text-right">Includes taxes and shipping</p>
-                        </div>
-
-                        <Link to="/shipping" className="block text-center w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm hover:-translate-y-0.5 transform mb-3">
-                            Checkout
-                        </Link>
-                        <Link to="/" className="w-full bg-white text-blue-600 border border-gray-200 py-3 rounded-lg font-medium hover:bg-gray-50 transition flex items-center justify-center">
-                            Continue Shopping
-                        </Link>
-
-                        <div className="mt-6 flex justify-center gap-2 grayscale opacity-60">
-                            {/* Payment icons placeholder */}
-                            <div className="h-6 w-10 bg-gray-200 rounded border border-gray-300"></div>
-                            <div className="h-6 w-10 bg-gray-200 rounded border border-gray-300"></div>
-                            <div className="h-6 w-10 bg-gray-200 rounded border border-gray-300"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      <div className="shell">
+        <EmptyState
+          icon={ShoppingBag}
+          title="Your bag is empty"
+          description="Once you add something, it will appear here."
+          action={<Button to="/shop" size="lg">Start shopping</Button>}
+        />
+      </div>
     );
-};
+  }
 
-export default Cart;
+  const goToCheckout = () => {
+    navigate(isAuthenticated ? '/checkout' : '/login?redirect=%2Fcheckout');
+  };
+
+  return (
+    <div className="shell py-10 sm:py-14">
+      <h1 className="mb-9 text-3xl sm:text-4xl">Your bag</h1>
+
+      {hasStockIssue && (
+        <Alert tone="warning" title="Some items need attention" className="mb-6">
+          One or more items exceed the stock we have left. Reduce the quantity to continue.
+        </Alert>
+      )}
+
+      <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:gap-14">
+        <div>
+          <ul className="divide-y divide-line border-y border-line">
+            {items.map((item) => {
+              const discount = discountPercent(item.mrp, item.price);
+              const overStock =
+                typeof item.availableStock === 'number' && item.qty > item.availableStock;
+              const maxQty = Math.min(item.availableStock ?? 10, 10);
+
+              return (
+                <li key={`${item.product}-${item.variantId}`} className="flex gap-4 py-5 sm:gap-5">
+                  <Link
+                    to={`/product/${item.slug}`}
+                    className="aspect-[3/4] w-24 shrink-0 overflow-hidden bg-paper-sunken sm:w-28"
+                  >
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-2xs text-ink-faint">
+                        No image
+                      </div>
+                    )}
+                  </Link>
+
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="text-sm leading-snug">
+                          <Link to={`/product/${item.slug}`} className="hover:text-clay-deep">
+                            {item.name}
+                          </Link>
+                        </h2>
+                        <p className="mt-1 text-xs text-ink-muted">Size {item.size}</p>
+                        {item.sku && (
+                          <p className="mt-0.5 text-2xs text-ink-faint">SKU {item.sku}</p>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.product, item.variantId)}
+                        aria-label={`Remove ${item.name} size ${item.size} from bag`}
+                        className="-m-2 shrink-0 p-2 text-ink-faint transition-colors hover:text-danger"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    {overStock && (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-warning">
+                        <AlertTriangle size={12} aria-hidden="true" />
+                        Only {item.availableStock} left
+                      </p>
+                    )}
+
+                    <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-4">
+                      <div className="flex h-10 items-center rounded-control border border-line">
+                        <button
+                          type="button"
+                          onClick={() => updateQty(item.product, item.variantId, item.qty - 1)}
+                          disabled={item.qty <= 1}
+                          aria-label="Decrease quantity"
+                          className="flex h-full w-9 items-center justify-center text-ink-soft
+                                     hover:text-ink disabled:opacity-30"
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <span className="w-8 text-center text-sm">{item.qty}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateQty(item.product, item.variantId, item.qty + 1)}
+                          disabled={item.qty >= maxQty}
+                          aria-label="Increase quantity"
+                          className="flex h-full w-9 items-center justify-center text-ink-soft
+                                     hover:text-ink disabled:opacity-30"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          {formatPriceExact(item.price * item.qty)}
+                        </p>
+                        {discount > 0 && (
+                          <p className="text-xs text-ink-faint line-through">
+                            {formatPrice(item.mrp * item.qty)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <Link
+            to="/shop"
+            className="mt-6 inline-flex items-center gap-2 text-xs font-medium uppercase
+                       tracking-wider2 text-ink-muted transition-colors hover:text-ink"
+          >
+            Continue shopping
+          </Link>
+        </div>
+
+        <div>
+          <OrderSummary>
+            <Button
+              size="lg"
+              fullWidth
+              onClick={goToCheckout}
+              disabled={hasStockIssue || pricingLoading || !pricing}
+            >
+              Checkout <ArrowRight size={15} aria-hidden="true" />
+            </Button>
+            {!isAuthenticated && (
+              <p className="mt-3 text-center text-xs text-ink-muted">
+                You will be asked to sign in first.
+              </p>
+            )}
+          </OrderSummary>
+        </div>
+      </div>
+    </div>
+  );
+}

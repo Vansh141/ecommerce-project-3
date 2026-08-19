@@ -1,121 +1,122 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import AdminRoute from './components/AdminRoute';
-import AdminLayout from './components/AdminLayout';
-import ScrollToTop from './components/ScrollToTop';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Store pages
-import Home from './pages/Home';
-import Cart from './pages/Cart';
-import ProductDetails from './pages/ProductDetails';
-import Wishlist from './pages/Wishlist';
-import SearchResults from './pages/SearchResults';
-import Login from './pages/Login';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Shipping from './pages/Shipping';
-import Payment from './pages/Payment';
-import PlaceOrder from './pages/PlaceOrder';
-import OrderSuccess from './pages/OrderSuccess';
-import Orders from './pages/Orders';
-import OrderDetail from './pages/OrderDetail';
-import Profile from './pages/Profile';
-import ProtectedRoute from './components/ProtectedRoute';
-// Static / info pages
-import AboutUs from './pages/AboutUs';
-import ContactUs from './pages/ContactUs';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfUse from './pages/TermsOfUse';
-import ShippingInfo from './pages/ShippingInfo';
-import ReturnsPage from './pages/ReturnsPage';
-import HelpCenter from './pages/HelpCenter';
-
-// Admin pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminProducts from './pages/admin/AdminProducts';
-import AdminOrders from './pages/admin/AdminOrders';
-import AdminUsers from './pages/admin/AdminUsers';
-
+import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 
-// ── Wrapper that renders a page inside the AdminLayout ──────────────────────
-const AdminPage = ({ children }) => (
-  <AdminRoute>
-    <AdminLayout>{children}</AdminLayout>
-  </AdminRoute>
-);
+import ErrorBoundary from './components/ErrorBoundary';
+import StoreLayout from './components/layout/StoreLayout';
+import { RequireAuth, RequireAdmin, RedirectIfAuthed } from './components/layout/Guards';
+import { PageLoader } from './components/ui';
 
-// ── Inner app: reads userId from AuthContext and passes it to Cart/Wishlist ──
-// This component must live *inside* AuthProvider so it can call useAuth().
-const AppWithUserScope = () => {
-  const { userInfo } = useAuth();
-  const userId = userInfo?._id || null; // null → guest keys
+/**
+ * Routes are code-split so a first-time visitor downloads the homepage only —
+ * not the admin panel, checkout and every policy page as well. This matters
+ * most on the mobile connections our customers actually browse on.
+ */
+const Home = lazy(() => import('./pages/Home'));
+const Shop = lazy(() => import('./pages/Shop'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Checkout = lazy(() => import('./pages/Checkout'));
 
+/** Named exports need a small wrapper to be lazy-loadable. */
+const pick = (loader, key) => lazy(() => loader().then((m) => ({ default: m[key] })));
+
+const OrderHistory = pick(() => import('./pages/Orders'), 'OrderHistory');
+const OrderDetail = pick(() => import('./pages/Orders'), 'OrderDetail');
+const OrderConfirmed = pick(() => import('./pages/Orders'), 'OrderConfirmed');
+
+const AccountLayout = pick(() => import('./pages/Account'), 'AccountLayout');
+const Profile = pick(() => import('./pages/Account'), 'Profile');
+const Addresses = pick(() => import('./pages/Account'), 'Addresses');
+const Wishlist = pick(() => import('./pages/Account'), 'Wishlist');
+
+const Login = pick(() => import('./pages/Auth'), 'Login');
+const Register = pick(() => import('./pages/Auth'), 'Register');
+const ForgotPassword = pick(() => import('./pages/Auth'), 'ForgotPassword');
+const ResetPassword = pick(() => import('./pages/Auth'), 'ResetPassword');
+
+const About = pick(() => import('./pages/Static'), 'About');
+const Contact = pick(() => import('./pages/Static'), 'Contact');
+const ShippingReturns = pick(() => import('./pages/Static'), 'ShippingReturns');
+const Privacy = pick(() => import('./pages/Static'), 'Privacy');
+const Terms = pick(() => import('./pages/Static'), 'Terms');
+const NotFound = pick(() => import('./pages/Static'), 'NotFound');
+
+const AdminLayout = pick(() => import('./pages/admin'), 'AdminLayout');
+const Dashboard = pick(() => import('./pages/admin'), 'Dashboard');
+const AdminProducts = pick(() => import('./pages/admin'), 'AdminProducts');
+const AdminCategories = pick(() => import('./pages/admin'), 'AdminCategories');
+const AdminInventory = pick(() => import('./pages/admin'), 'AdminInventory');
+const AdminOrders = pick(() => import('./pages/admin'), 'AdminOrders');
+const AdminCustomers = pick(() => import('./pages/admin'), 'AdminCustomers');
+const AdminCoupons = pick(() => import('./pages/admin'), 'AdminCoupons');
+
+export default function App() {
   return (
-    <CartProvider userId={userId}>
-      <WishlistProvider userId={userId}>
-        <Router>
-          <ScrollToTop />
-          <Routes>
-            {/* ── Admin Routes (no Navbar/Footer) ── */}
-            <Route path="/admin" element={<AdminPage><AdminDashboard /></AdminPage>} />
-            <Route path="/admin/products" element={<AdminPage><AdminProducts /></AdminPage>} />
-            <Route path="/admin/orders" element={<AdminPage><AdminOrders /></AdminPage>} />
-            <Route path="/admin/users" element={<AdminPage><AdminUsers /></AdminPage>} />
-
-            {/* ── Store Routes (with Navbar/Footer) ── */}
-            <Route path="/*" element={
-              <div className="min-h-screen flex flex-col">
-                <Navbar />
-                <main className="flex-grow container mx-auto px-4 py-6">
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <Suspense fallback={<PageLoader />}>
                   <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/product/:id" element={<ProductDetails />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/wishlist" element={<Wishlist />} />
-                    <Route path="/search" element={<SearchResults />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password/:token" element={<ResetPassword />} />
-                    <Route path="/shipping" element={<Shipping />} />
-                    <Route path="/payment" element={<Payment />} />
-                    <Route path="/placeorder" element={<PlaceOrder />} />
-                    <Route path="/order-success/:id" element={<OrderSuccess />} />
-                    <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                    <Route path="/order-history" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                    <Route path="/order/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
-                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                    {/* Static / info pages */}
-                    <Route path="/about" element={<AboutUs />} />
-                    <Route path="/contact" element={<ContactUs />} />
-                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                    <Route path="/terms" element={<TermsOfUse />} />
-                    <Route path="/shipping-info" element={<ShippingInfo />} />
-                    <Route path="/returns" element={<ReturnsPage />} />
-                    <Route path="/help" element={<HelpCenter />} />
-                  </Routes>
-                </main>
-                <Footer />
-              </div>
-            } />
-          </Routes>
-        </Router>
-      </WishlistProvider>
-    </CartProvider>
-  );
-};
+                    {/* ── Storefront ── */}
+                    <Route element={<StoreLayout />}>
+                      <Route index element={<Home />} />
+                      <Route path="shop" element={<Shop />} />
+                      <Route path="product/:slug" element={<ProductDetail />} />
+                      <Route path="cart" element={<Cart />} />
+                      <Route path="wishlist" element={<Wishlist />} />
 
-// ── Root App ─────────────────────────────────────────────────────────────────
-function App() {
-  return (
-    <AuthProvider>
-      <AppWithUserScope />
-    </AuthProvider>
+                      {/* Auth — signed-in users are bounced away from these */}
+                      <Route path="login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+                      <Route path="register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
+                      <Route path="forgot-password" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
+                      <Route path="reset-password/:token" element={<ResetPassword />} />
+
+                      {/* Customer-only */}
+                      <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+                      <Route path="orders" element={<RequireAuth><OrderHistory /></RequireAuth>} />
+                      <Route path="orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
+                      <Route path="order-confirmed/:id" element={<RequireAuth><OrderConfirmed /></RequireAuth>} />
+
+                      <Route path="account" element={<RequireAuth><AccountLayout /></RequireAuth>}>
+                        <Route index element={<Profile />} />
+                        <Route path="addresses" element={<Addresses />} />
+                      </Route>
+
+                      {/* Content */}
+                      <Route path="about" element={<About />} />
+                      <Route path="contact" element={<Contact />} />
+                      <Route path="shipping-returns" element={<ShippingReturns />} />
+                      <Route path="privacy" element={<Privacy />} />
+                      <Route path="terms" element={<Terms />} />
+
+                      <Route path="*" element={<NotFound />} />
+                    </Route>
+
+                    {/* ── Admin ── */}
+                    <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+                      <Route index element={<Dashboard />} />
+                      <Route path="products" element={<AdminProducts />} />
+                      <Route path="categories" element={<AdminCategories />} />
+                      <Route path="inventory" element={<AdminInventory />} />
+                      <Route path="orders" element={<AdminOrders />} />
+                      <Route path="customers" element={<AdminCustomers />} />
+                      <Route path="coupons" element={<AdminCoupons />} />
+                    </Route>
+                  </Routes>
+                </Suspense>
+              </WishlistProvider>
+            </CartProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
-
-export default App;

@@ -1,9 +1,32 @@
 {
+  "name": "touch-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TOUCH — fashion e-commerce storefront and API",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+
+    "dev": "concurrently -n api,web -c blue,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix frontend run dev",
+
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix backend start",
+
+    "test": "npm --prefix backend test",
+    "lint": "npm --prefix frontend run lint",
+    "audit": "npm --prefix backend audit && npm --prefix frontend audit",
+
+    "seed": "npm --prefix backend run seed",
+    "seed:admin": "npm --prefix backend run seed:admin",
+    "indexes": "npm --prefix backend run indexes",
+
+    "verify": "npm run lint && npm run test && npm run build"
+  },
   "devDependencies": {
-    "autoprefixer": "^10.4.27",
-    "lucide-react": "^0.576.0",
-    "postcss": "^8.5.6",
-    "react-router-dom": "^7.13.1",
-    "tailwindcss": "^4.2.1"
+    "concurrently": "^9.2.1"
   }
 }

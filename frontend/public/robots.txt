@@ -1,0 +1,23 @@
+# TOUCH — crawler rules
+User-agent: *
+Allow: /
+
+# Nothing behind authentication should be indexed. These pages also send
+# `noindex` at runtime; this is the belt-and-braces version for crawlers that
+# do not execute JavaScript.
+Disallow: /account
+Disallow: /account/
+Disallow: /orders
+Disallow: /orders/
+Disallow: /order-confirmed/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /admin
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password/
+
+# Replace with your production domain before going live.
+Sitemap: https://www.example.com/sitemap.xml
