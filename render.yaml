@@ -58,16 +58,13 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      - key: SMTP_HOST
+      # Email goes over Resend's HTTPS API, not SMTP: Render blocks outbound
+      # connections on ports 25/465/587, so smtp.gmail.com fails with
+      # ENETUNREACH there regardless of credentials.
+      - key: RESEND_API_KEY
         sync: false
-      - key: SMTP_PORT
-        sync: false
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: MAIL_FROM_EMAIL
-        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false            # must be on a domain verified in Resend
       - key: MAIL_FROM_NAME
         value: TOUCH
 

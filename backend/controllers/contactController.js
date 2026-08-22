@@ -24,7 +24,7 @@ const submitContact = asyncHandler(async (req, res) => {
     ip: req.ip,
   });
 
-  const notifyAddress = config.smtp.fromEmail;
+  const notifyAddress = config.resend.notifyEmail;
   let delivered = false;
 
   if (notifyAddress) {

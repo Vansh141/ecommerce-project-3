@@ -1,39 +1,43 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const config = require('../config/env');
 const logger = require('../utils/logger');
 const { stripCRLF, escapeHtml } = require('../utils/sanitize');
 
 /**
- * Transactional email.
+ * Transactional email, delivered through the Resend HTTPS API.
  *
  * Two rules govern everything here:
  *  1. Email failure must never corrupt an otherwise successful operation.
  *     Every send is awaited defensively and returns a boolean; callers treat
  *     `false` as "not delivered", never as a reason to roll back an order.
  *  2. No user-supplied value reaches a header un-sanitised. CRLF in a name or
- *     subject is an SMTP header-injection vector.
+ *     subject is a header-injection vector.
  */
 
-let transporter = null;
-let transporterReady = false;
+let client = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!config.smtp.enabled) return null;
+/**
+ * Builds the client on first use, never at module load.
+ *
+ * `new Resend(undefined)` throws "Missing API key". Because this module is
+ * required transitively by every controller, doing that at require-time would
+ * abort the entire API at boot instead of merely disabling email.
+ */
+function getClient() {
+  if (client) return client;
+  if (!config.resend.enabled) return null;
+  client = new Resend(config.resend.apiKey);
+  return client;
+}
 
-  transporter = nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    auth: { user: config.smtp.user, pass: config.smtp.pass },
-    pool: true,
-    maxConnections: 3,
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 20_000,
-  });
-  transporterReady = true;
-  return transporter;
+/**
+ * Resend accepts `Name <addr>` or a bare address. The domain must be verified
+ * in Resend, otherwise the API rejects the send with a 403.
+ */
+function fromHeader() {
+  const name = stripCRLF(config.resend.fromName || '').replace(/["\\]/g, '');
+  const email = stripCRLF(config.resend.fromEmail);
+  return name ? `${name} <${email}>` : email;
 }
 
 const BRAND = {
@@ -116,29 +120,63 @@ function itemsTable(order) {
  * Never throws — callers must be able to ignore the result safely.
  */
 async function send({ to, subject, html, text }) {
-  const tx = getTransporter();
+  const resend = getClient();
+  const cleanSubject = stripCRLF(subject);
+  const recipient = stripCRLF(to);
 
-  if (!tx) {
-    logger.warn('Email not sent — SMTP is not configured', { subject: stripCRLF(subject) });
+  if (!resend) {
+    logger.warn('Email not sent — Resend is not configured', {
+      subject: cleanSubject,
+      hasApiKey: Boolean(config.resend.apiKey),
+      hasFromEmail: Boolean(config.resend.fromEmail),
+    });
     return false;
   }
 
   try {
-    const info = await tx.sendMail({
-      from: `"${stripCRLF(config.smtp.fromName)}" <${stripCRLF(config.smtp.fromEmail)}>`,
-      to: stripCRLF(to),
-      subject: stripCRLF(subject),
+    const { data, error } = await resend.emails.send({
+      from: fromHeader(),
+      to: [recipient],
+      subject: cleanSubject,
       html,
-      text: text || String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      text:
+        text ||
+        String(html)
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
     });
-    logger.info('Email sent', { messageId: info.messageId, subject: stripCRLF(subject) });
+
+    /**
+     * Resend reports rejection in the response body rather than by throwing.
+     * `name` and `statusCode` are what actually distinguish the failure modes —
+     * 401 invalid key, 403 unverified sending domain, 422 malformed address —
+     * so all three are logged. The API key is never among them.
+     */
+    if (error) {
+      logger.error('Resend rejected the message', {
+        subject: cleanSubject,
+        to: recipient,
+        from: fromHeader(),
+        name: error.name,
+        statusCode: error.statusCode,
+        message: error.message,
+      });
+      return false;
+    }
+
+    logger.info('Email sent', { messageId: data?.id, subject: cleanSubject, to: recipient });
     return true;
   } catch (err) {
-    logger.error('Email delivery failed', { subject: stripCRLF(subject), message: err.message });
+    // Transport-level failure: DNS, TLS, timeout, or an unreachable endpoint.
+    logger.error('Email delivery failed', {
+      subject: cleanSubject,
+      to: recipient,
+      message: err.message,
+    });
     return false;
   }
 }
-
 // ── Templates ────────────────────────────────────────────────────────────────
 
 const sendPasswordReset = ({ to, name, resetUrl }) =>
@@ -259,6 +297,6 @@ module.exports = {
   sendOrderDelivered,
   sendOrderCancelled,
   sendContactNotification,
-  isEnabled: () => config.smtp.enabled,
-  isReady: () => transporterReady,
+  isEnabled: () => config.resend.enabled,
+  isReady: () => client !== null,
 };

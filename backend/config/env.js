@@ -207,19 +207,37 @@ if (TRUST_PROXY_RAW === 'false' || TRUST_PROXY_RAW === '0') {
   TRUST_PROXY = TRUST_PROXY_RAW; // e.g. 'loopback' or a subnet
 }
 
-// ── Optional integrations ────────────────────────────────────────────────────
-const smtp = {
-  host: str('SMTP_HOST'),
-  port: int('SMTP_PORT', { fallback: 587, min: 1, max: 65535 }),
-  secure: bool('SMTP_SECURE', false),
-  user: str('SMTP_USER'),
-  pass: str('SMTP_PASS'),
+// ── Email (Resend HTTPS API) ─────────────────────────────────────────────────
+/**
+ * Transactional mail goes over Resend's HTTPS API rather than SMTP.
+ *
+ * Render blocks outbound connections on the SMTP ports (25/465/587), so a
+ * direct smtp.gmail.com:587 dial fails there with ENETUNREACH no matter how
+ * correct the credentials are. HTTPS is not blocked.
+ */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const resend = {
+  apiKey: str('RESEND_API_KEY'),
+  fromEmail: str('RESEND_FROM_EMAIL'),
   fromName: str('MAIL_FROM_NAME', { fallback: 'TOUCH' }),
-  fromEmail: str('MAIL_FROM_EMAIL'),
+  /** Where contact-form enquiries land. Defaults to the sending address. */
+  notifyEmail: str('CONTACT_NOTIFY_EMAIL'),
 };
-smtp.enabled = Boolean(smtp.host && smtp.user && smtp.pass && smtp.fromEmail);
-if (isProduction && !smtp.enabled) {
-  warnings.push('SMTP is not configured. Password reset and order emails will not be delivered.');
+resend.notifyEmail = resend.notifyEmail || resend.fromEmail;
+resend.enabled = Boolean(resend.apiKey && resend.fromEmail);
+
+// Caught here rather than as a 422 from the API on the first password reset.
+if (resend.fromEmail && !EMAIL_RE.test(resend.fromEmail)) {
+  errors.push(
+    'RESEND_FROM_EMAIL must be a bare address such as support@example.com (no display name).'
+  );
+}
+if (resend.apiKey && !resend.apiKey.startsWith('re_')) {
+  errors.push('RESEND_API_KEY does not look like a Resend key (expected it to start with "re_").');
+}
+if (isProduction && !resend.enabled) {
+  warnings.push('Resend is not configured. Password reset and order emails will not be delivered.');
 }
 
 const razorpay = {
@@ -312,7 +330,7 @@ const config = Object.freeze({
     domain: str('COOKIE_DOMAIN'),
     path: '/api/auth',
   }),
-  smtp: Object.freeze(smtp),
+  resend: Object.freeze(resend),
   razorpay: Object.freeze(razorpay),
   cloudinary: Object.freeze(cloudinary),
   store: Object.freeze(store),

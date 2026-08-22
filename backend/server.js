@@ -27,7 +27,7 @@ async function start() {
       env: config.env,
       razorpay: config.razorpay.enabled,
       cloudinary: config.cloudinary.enabled,
-      smtp: config.smtp.enabled,
+      email: config.resend.enabled,
     });
   });
 
