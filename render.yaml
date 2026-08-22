@@ -100,8 +100,7 @@ services:
   # ── Storefront ─────────────────────────────────────────────────────────────
   - type: web
     name: touch-store
-    runtime: static
-    plan: free
+    runtime: static 
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
