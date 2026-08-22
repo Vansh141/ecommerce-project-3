@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { SlidersHorizontal, X, Search, PackageSearch } from 'lucide-react';
 import { productApi } from '../api/endpoints';
-import { useFetch, useDebounced, useDocumentMeta, useBodyScrollLock } from '../hooks';
+import {
+  useFetch, useDebounced, useDocumentMeta, useBodyScrollLock, useFocusTrap,
+} from '../hooks';
 import { ProductGrid } from '../components/product/ProductCard';
 import { Button, EmptyState, Pagination, Select, Alert, Skeleton } from '../components/ui';
 import { formatPrice, sortSizes } from '../utils/format';
@@ -22,7 +24,10 @@ const SORT_OPTIONS = [
  * the /products/facets endpoint, categories from /categories. Nothing here is
  * hardcoded, so a filter can never offer a size or band that no product has.
  */
-function Filters({ params, setParam, clearAll, categories, facets, facetsLoading, activeCount }) {
+function Filters({
+  params, setParam, clearAll, categories, facets, facetsLoading, activeCount,
+  showClearAll = true,
+}) {
   const priceBands = useMemo(() => {
     const max = facets?.priceRange?.max ?? 0;
     if (max <= 0) return [];
@@ -53,7 +58,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
 
   return (
     <div className="space-y-8">
-      {activeCount > 0 && (
+      {showClearAll && activeCount > 0 && (
         <button
           type="button"
           onClick={clearAll}
@@ -70,7 +75,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
           <button
             type="button"
             onClick={() => setParam('category', '')}
-            className={`block w-full text-left text-sm transition-colors ${
+            className={`block w-full py-1 text-left text-sm transition-colors ${
               !params.category ? 'font-medium text-ink' : 'text-ink-muted hover:text-ink'
             }`}
           >
@@ -81,7 +86,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
               key={c._id}
               type="button"
               onClick={() => setParam('category', c.slug)}
-              className={`flex w-full items-center justify-between gap-2 text-left text-sm
+              className={`flex w-full items-center justify-between gap-3 py-1 text-left text-sm
                           transition-colors ${
                             params.category === c.slug
                               ? 'font-medium text-ink'
@@ -104,7 +109,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
             <button
               type="button"
               onClick={() => { setParam('minPrice', ''); setParam('maxPrice', ''); }}
-              className={`block w-full text-left text-sm transition-colors ${
+              className={`block w-full py-1 text-left text-sm transition-colors ${
                 activePriceBand === -1 ? 'font-medium text-ink' : 'text-ink-muted hover:text-ink'
               }`}
             >
@@ -115,7 +120,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
                 key={band.label}
                 type="button"
                 onClick={() => { setParam('minPrice', band.min); setParam('maxPrice', band.max); }}
-                className={`block w-full text-left text-sm transition-colors ${
+                className={`block w-full py-1 text-left text-sm transition-colors ${
                   activePriceBand === i ? 'font-medium text-ink' : 'text-ink-muted hover:text-ink'
                 }`}
               >
@@ -173,7 +178,7 @@ function Filters({ params, setParam, clearAll, categories, facets, facetsLoading
             { key: 'onSale', label: 'On sale' },
             { key: 'newArrival', label: 'New arrivals' },
           ].map(({ key, label }) => (
-            <label key={key} className="flex cursor-pointer items-center gap-2.5">
+            <label key={key} className="flex min-h-[2.25rem] cursor-pointer items-center gap-2.5">
               <input
                 type="checkbox"
                 checked={params[key] === 'true'}
@@ -194,8 +199,18 @@ export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const sheetRef = useRef(null);
 
   useBodyScrollLock(mobileFiltersOpen);
+  useFocusTrap(sheetRef, mobileFiltersOpen);
+
+  // Escape closes the sheet, matching every other overlay in the storefront.
+  useEffect(() => {
+    if (!mobileFiltersOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMobileFiltersOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileFiltersOpen]);
 
   const params = useMemo(() => Object.fromEntries(searchParams.entries()), [searchParams]);
   const debouncedSearch = useDebounced(searchInput, 400);
@@ -286,8 +301,8 @@ export default function Shop() {
 
   return (
     <div className="shell py-10 sm:py-14">
-      <header className="mb-9">
-        <h1 className="text-3xl sm:text-4xl">{title}</h1>
+      <header className="mb-7 sm:mb-9">
+        <h1 className="text-display-2">{title}</h1>
         {activeCategory?.description && (
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-muted">
             {activeCategory.description}
@@ -301,8 +316,8 @@ export default function Shop() {
       </header>
 
       {/* ── Toolbar ── */}
-      <div className="mb-8 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="mb-8 flex flex-col gap-3 border-y border-line py-3.5 sm:flex-row sm:items-center sm:justify-between sm:py-4">
+        <div className="relative min-w-0 flex-1 sm:max-w-xs">
           <Search
             size={15}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
@@ -318,22 +333,27 @@ export default function Shop() {
           />
         </div>
 
+        {/* Below `lg` the sidebar does not exist, so one control opens both
+            filtering and sorting; from `lg` the sidebar handles filtering and
+            only the sort control remains in the toolbar. */}
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
-            size="sm"
-            className="lg:hidden"
+            size="md"
+            className="shrink-0 lg:hidden"
             onClick={() => setMobileFiltersOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={mobileFiltersOpen}
           >
             <SlidersHorizontal size={14} aria-hidden="true" />
-            Filters{activeCount > 0 && ` (${activeCount})`}
+            Filters &amp; sort{activeCount > 0 && ` (${activeCount})`}
           </Button>
 
           <Select
             value={params.sort || 'newest'}
             onChange={(e) => setParam('sort', e.target.value)}
             aria-label="Sort products"
-            className="w-full sm:w-52"
+            className="hidden w-52 lg:block"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -342,9 +362,9 @@ export default function Shop() {
         </div>
       </div>
 
-      <div className="flex gap-10">
-        <aside className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-24">
+      <div className="flex gap-8 xl:gap-10">
+        <aside className="hidden w-52 shrink-0 lg:block xl:w-56">
+          <div className="sticky top-32">
             <Filters {...filterProps} />
           </div>
         </aside>
@@ -383,7 +403,7 @@ export default function Shop() {
         </div>
       </div>
 
-      {/* ── Mobile filter drawer ── */}
+      {/* ── Mobile "Filters & sort" sheet ── */}
       {mobileFiltersOpen && (
         <div className="fixed inset-0 z-[70] lg:hidden">
           <div
@@ -392,32 +412,59 @@ export default function Shop() {
             aria-hidden="true"
           />
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Filters"
-            className="absolute inset-y-0 right-0 flex w-[88%] max-w-sm animate-slide-in-right
+            aria-label="Filters and sort"
+            tabIndex={-1}
+            className="absolute inset-y-0 right-0 flex w-[92%] max-w-sm animate-slide-in-right
                        flex-col bg-paper-raised shadow-pop"
           >
-            <div className="flex items-center justify-between border-b border-line px-5 py-4">
-              <h2 className="text-base">Filters</h2>
+            <div className="flex h-16 shrink-0 items-center justify-between border-b border-line px-5">
+              <h2 className="text-base">Filters &amp; sort</h2>
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(false)}
                 aria-label="Close filters"
-                className="-mr-2 p-2 text-ink-faint hover:text-ink"
+                className="icon-btn -mr-3"
               >
-                <X size={19} />
+                <X size={19} aria-hidden="true" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
-              <Filters {...filterProps} />
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-6">
+              <div className="mb-8">
+                <Select
+                  label="Sort by"
+                  value={params.sort || 'newest'}
+                  onChange={(e) => setParam('sort', e.target.value)}
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <Filters {...filterProps} showClearAll={false} />
             </div>
 
-            <div className="border-t border-line p-4">
-              <Button fullWidth onClick={() => setMobileFiltersOpen(false)}>
-                Show {total} {total === 1 ? 'result' : 'results'}
-              </Button>
+            {/* Filtering applies as each option is tapped — the result count on
+                the button is live, so "Apply" simply closes the sheet and
+                "Reset" clears everything without leaving it. */}
+            <div className="shrink-0 border-t border-line p-4 pb-safe">
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={clearAll}
+                  disabled={activeCount === 0}
+                >
+                  Reset
+                </Button>
+                <Button className="flex-[2]" onClick={() => setMobileFiltersOpen(false)}>
+                  Show {total} {total === 1 ? 'result' : 'results'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -152,3 +152,72 @@ export function useMediaQuery(query) {
 
   return matches;
 }
+
+/**
+ * Keyboard containment for drawers and sheets.
+ *
+ * The `Modal` in the UI kit traps focus itself; this is the same contract for
+ * the surfaces that are not modals — the navigation drawer and the filter
+ * sheet — so a keyboard user cannot tab into the page behind an open overlay,
+ * and lands back on the control that opened it when it closes.
+ */
+export function useFocusTrap(ref, active) {
+  const previouslyFocused = useRef(null);
+
+  useEffect(() => {
+    if (!active || !ref.current) return undefined;
+
+    const container = ref.current;
+    previouslyFocused.current = document.activeElement;
+
+    const focusablesIn = () =>
+      Array.from(
+        container.querySelectorAll(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null);
+
+    const timer = setTimeout(() => {
+      (focusablesIn()[0] || container).focus();
+    }, 60);
+
+    const onKeyDown = (event) => {
+      if (event.key !== 'Tab') return;
+      const focusables = focusablesIn();
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    container.addEventListener('keydown', onKeyDown);
+    return () => {
+      clearTimeout(timer);
+      container.removeEventListener('keydown', onKeyDown);
+      previouslyFocused.current?.focus?.();
+    };
+  }, [ref, active]);
+}
+
+/**
+ * Keeps a closed-but-still-mounted overlay out of the tab order and the
+ * accessibility tree, without unmounting it — which is what lets the panel
+ * keep its slide-out transition instead of vanishing.
+ */
+export function useInertWhen(ref, inactive) {
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return undefined;
+    if (inactive) node.setAttribute('inert', '');
+    else node.removeAttribute('inert');
+    return () => node.removeAttribute('inert');
+  }, [ref, inactive]);
+}

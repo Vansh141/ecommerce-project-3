@@ -20,13 +20,31 @@
 
   body {
     @apply bg-paper text-ink font-sans antialiased;
-    /* Nothing on the site may cause a sideways scroll on a phone. */
-    overflow-x: hidden;
+  }
+
+  /* Sideways scroll is prevented by fixing the element that overflows, not by
+     clipping the page — a hidden overflow only hides the bug. The one thing
+     enforced globally is that media can never exceed its column. */
+  img, video, svg, canvas {
+    max-width: 100%;
+  }
+
+  /* One stroke weight for every icon in the product. lucide-react defaults to
+     2, which reads heavy next to this typeface; 1.5 matches the hairline
+     rules and thin serifs the rest of the design uses. */
+  svg.lucide {
+    stroke-width: 1.5;
   }
 
   h1, h2, h3, h4 {
     @apply font-display font-normal text-ink;
     text-wrap: balance;
+  }
+
+  /* Long unbroken strings — SKUs, order ids, an email in a narrow column —
+     must wrap rather than push the layout sideways on a 320px screen. */
+  p, li, dd, td, th, h1, h2, h3, h4 {
+    overflow-wrap: break-word;
   }
 
   /* A single, consistent focus treatment. Visible for keyboard users,
@@ -140,19 +158,65 @@
   }
 
   /* Animated underline used across the nav. */
+  /* The vertical padding is deliberate: without it the clickable area is only
+     the 16px cap height of the text, which is a poor target even with a mouse.
+     It does not change the row height, which is set by the nav itself. */
   .nav-link {
-    @apply relative text-xs font-medium uppercase tracking-wider2 text-ink-soft
-           transition-colors duration-200 hover:text-ink;
+    @apply relative block whitespace-nowrap py-3 text-xs font-medium uppercase
+           tracking-wider2 text-ink-soft transition-colors duration-200 hover:text-ink;
   }
   .nav-link::after {
     content: '';
-    @apply absolute -bottom-1 left-0 h-px w-0 bg-ink transition-all duration-300 ease-luxe;
+    @apply absolute bottom-2 left-0 h-px w-0 bg-ink transition-all duration-300 ease-luxe;
   }
   .nav-link:hover::after,
   .nav-link[data-active='true']::after {
     @apply w-full;
   }
   .nav-link[data-active='true'] { @apply text-ink; }
+
+
+  /* ── Icon-only controls ────────────────────────────────────────────────
+     One implementation, so every icon button in the header, drawers and
+     toolbars has the same 44px touch target, the same hover shift and the
+     same focus ring — regardless of the icon inside it. */
+  .icon-btn {
+    @apply relative inline-flex h-11 w-11 shrink-0 items-center justify-center
+           rounded-control text-ink-soft transition-colors duration-200
+           hover:text-ink focus-visible:text-ink;
+  }
+  .icon-btn-sm {
+    @apply icon-btn h-9 w-9;
+  }
+
+  /* Desktop-only label for an icon-only control. Hidden from assistive tech
+     (the button already carries an aria-label) and never shown on touch,
+     where there is no hover to reveal it. */
+  .has-tip { @apply relative; }
+  .tip {
+    @apply pointer-events-none absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2
+           whitespace-nowrap rounded-control bg-ink px-2 py-1 text-[10px] font-medium
+           uppercase tracking-wider2 text-paper opacity-0 transition-opacity duration-200;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tip { @apply block; }
+    .has-tip:hover .tip,
+    .has-tip:focus-within .tip { @apply opacity-100; }
+  }
+
+  /* ── Announcement strip ────────────────────────────────────────────────
+     Items sit on one optical baseline: the icon box and the text box are the
+     same height, so nothing shifts by a pixel between the three entries. */
+  .announce-item {
+    @apply flex items-center justify-center gap-2 whitespace-nowrap text-[0.6875rem]
+           font-medium uppercase leading-none tracking-wider2 text-paper/90;
+  }
+
+  /* ── Vertical rhythm ───────────────────────────────────────────────────
+     Compact on a phone, generous on a desktop, with one step in between —
+     used instead of each section inventing its own padding. */
+  .section { @apply py-12 sm:py-16 lg:py-20; }
+  .section-tight { @apply py-8 sm:py-12 lg:py-14; }
 
   /* ── Skeleton ──────────────────────────────────────────────────────── */
   .skeleton {
@@ -172,4 +236,14 @@
 @layer utilities {
   .text-balance { text-wrap: balance; }
   .tap-target { @apply min-h-[44px] min-w-[44px]; }
+
+  /* Fluid display sizes. `clamp` scales continuously between the phone and
+     the 1440px shell, which avoids the jump — and the single-word last line —
+     that fixed per-breakpoint sizes produce at the boundaries. */
+  .text-display-1 { font-size: clamp(2.125rem, 1.35rem + 3.6vw, 3.75rem); line-height: 1.06; }
+  .text-display-2 { font-size: clamp(1.75rem, 1.3rem + 2.1vw, 2.75rem); line-height: 1.12; }
+  .text-display-3 { font-size: clamp(1.375rem, 1.15rem + 1.05vw, 1.875rem); line-height: 1.2; }
+
+  /* Keeps a fixed bottom bar clear of the iOS home indicator. */
+  .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
 }

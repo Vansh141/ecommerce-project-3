@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { toPaise } = require('../utils/money');
 const Order = require('../models/Order');
 const inventoryService = require('./inventoryService');
+const emailService = require('./emailService');
 
 /**
  * Razorpay integration.
@@ -199,7 +200,10 @@ async function handleWebhookEvent(event) {
   const razorpayOrderId = entity.order_id;
   if (!razorpayOrderId) return { handled: false, reason: 'No order reference' };
 
-  const order = await Order.findOne({ 'payment.razorpayOrderId': razorpayOrderId });
+  // Populated because a webhook-settled payment has to send its own receipt —
+  // there is no browser callback in this path to do it.
+  const order = await Order.findOne({ 'payment.razorpayOrderId': razorpayOrderId })
+    .populate('user', 'name email');
   if (!order) return { handled: false, reason: 'Order not found' };
 
   if (type === 'payment.captured') {
@@ -219,6 +223,27 @@ async function handleWebhookEvent(event) {
       });
     }
     await order.save();
+
+    // Same undercount guard as the callback path: whichever of the two settles
+    // the payment first is the one that books the sale. Both bail out early if
+    // the order is already paid, so this can never double-count.
+    inventoryService
+      .recordSales(order.items.map((i) => ({ productId: i.product, qty: i.qty })))
+      .catch(() => {});
+
+    // The customer closed the tab before the browser callback reached us, so
+    // this is the ONLY chance to confirm the order to them. Fire-and-forget:
+    // a mail outage must never make us return non-2xx and trigger a retry
+    // storm from Razorpay for a payment we have already recorded.
+    if (order.user?.email) {
+      const orderUrl = `${config.clientUrl}/orders/${order._id}`;
+      emailService
+        .sendOrderConfirmation({ to: order.user.email, name: order.user.name, order, orderUrl })
+        .catch(() => {});
+      emailService
+        .sendPaymentConfirmation({ to: order.user.email, name: order.user.name, order, orderUrl })
+        .catch(() => {});
+    }
 
     logger.info('Payment captured via webhook', {
       orderId: order._id.toString(),

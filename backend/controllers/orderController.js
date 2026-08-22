@@ -204,12 +204,27 @@ const refundOrder = asyncHandler(async (req, res) => {
   if (!order) throw ApiError.notFound('Order not found.');
 
   if (order.payment.method === 'COD') {
+    // A refund only makes sense once money has actually changed hands. Without
+    // this guard an unpaid COD order could be marked "refunded", which restores
+    // stock and books a refund against revenue that was never collected.
+    if (order.payment.status !== 'paid') {
+      throw ApiError.badRequest(
+        'This order has not been paid for, so there is nothing to refund. Cancel it instead.',
+        { code: 'ORDER_NOT_PAID' }
+      );
+    }
+
+    const amount = req.body.amount ?? order.pricing.grandTotal;
+    if (!(amount > 0) || amount > order.pricing.grandTotal) {
+      throw ApiError.badRequest('Invalid refund amount.');
+    }
+
     // Nothing was ever charged online, so record the refund without calling
     // the gateway — the money moves outside the system.
     order.payment.status = 'refunded';
     order.status = 'refunded';
     order.refund = {
-      amount: req.body.amount ?? order.pricing.grandTotal,
+      amount,
       refundId: null,
       status: 'processed',
       at: new Date(),

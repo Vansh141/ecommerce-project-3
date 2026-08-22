@@ -60,7 +60,8 @@ function ProductCard({ product, priority = false }) {
         </Link>
 
         {/* Status badges — only rendered when the underlying fact is true. */}
-        <div className="pointer-events-none absolute left-3 top-3 flex flex-col items-start gap-1.5">
+        <div className="pointer-events-none absolute left-2 top-2 flex max-w-[calc(100%-3.5rem)] flex-col
+                        items-start gap-1.5 sm:left-3 sm:top-3">
           {outOfStock && <span className="badge-neutral bg-ink/85 text-paper">Sold out</span>}
           {!outOfStock && discount > 0 && <span className="badge-sale">−{discount}%</span>}
           {!outOfStock && discount === 0 && isNewArrival && <span className="badge-new">New</span>}
@@ -71,13 +72,14 @@ function ProductCard({ product, priority = false }) {
           onClick={() => toggle(product)}
           aria-label={wishlisted ? `Remove ${name} from wishlist` : `Save ${name} to wishlist`}
           aria-pressed={wishlisted}
-          className="absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center
+          className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center
                      rounded-full bg-paper-raised/90 text-ink-soft backdrop-blur-sm
                      transition-all duration-200 hover:bg-paper-raised hover:text-ink
-                     focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                     focus-visible:opacity-100 sm:right-2.5 sm:top-2.5 sm:opacity-0
+                     sm:group-hover:opacity-100"
         >
           <Heart
-            size={15}
+            size={16}
             className={wishlisted ? 'fill-danger text-danger' : ''}
             aria-hidden="true"
           />
@@ -104,21 +106,30 @@ function ProductCard({ product, priority = false }) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col pt-3.5">
-        {brand && <p className="mb-1 text-2xs uppercase tracking-wider2 text-ink-faint">{brand}</p>}
+      <div className="flex flex-1 flex-col pt-3 sm:pt-3.5">
+        {brand && (
+          <p className="mb-1 truncate text-2xs uppercase tracking-wider2 text-ink-faint">{brand}</p>
+        )}
 
-        <h3 className="text-sm leading-snug">
-          <Link to={`/product/${slug}`} className="transition-colors hover:text-clay-deep">
+        <h3 className="text-[0.8125rem] leading-snug sm:text-sm">
+          <Link
+            to={`/product/${slug}`}
+            className="line-clamp-2 transition-colors hover:text-clay-deep"
+          >
             {name}
           </Link>
         </h3>
 
-        <div className="mt-2 flex flex-wrap items-baseline gap-2">
-          <span className="text-sm font-medium text-ink">{formatPrice(price)}</span>
+        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:mt-2">
+          <span className="text-[0.8125rem] font-medium text-ink sm:text-sm">
+            {formatPrice(price)}
+          </span>
           {discount > 0 && (
             <>
-              <span className="text-xs text-ink-faint line-through">{formatPrice(mrp)}</span>
-              <span className="text-xs font-medium text-danger">−{discount}%</span>
+              <span className="text-2xs text-ink-faint line-through sm:text-xs">
+                {formatPrice(mrp)}
+              </span>
+              <span className="text-2xs font-medium text-danger sm:text-xs">−{discount}%</span>
             </>
           )}
         </div>
@@ -143,7 +154,7 @@ export function ProductCardSkeleton() {
 export function ProductGrid({ products = [], loading = false, skeletonCount = 8, priorityCount = 4 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-x-4 gap-y-9 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-9 lg:grid-cols-3 xl:grid-cols-4">
         {Array.from({ length: skeletonCount }).map((_, i) => (
            
           <ProductCardSkeleton key={i} />
@@ -153,7 +164,7 @@ export function ProductGrid({ products = [], loading = false, skeletonCount = 8,
   }
 
   return (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-9 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-7 sm:gap-x-4 sm:gap-y-9 lg:grid-cols-3 xl:grid-cols-4">
       {products.map((product, i) => (
         <ProductCard key={product._id} product={product} priority={i < priorityCount} />
       ))}
@@ -168,7 +179,7 @@ export function ProductRail({ products = [], loading = false }) {
       <div className="no-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 sm:-mx-8 sm:px-8 lg:mx-0 lg:px-0">
         {Array.from({ length: 4 }).map((_, i) => (
            
-          <div key={i} className="w-[46vw] shrink-0 sm:w-64 lg:w-auto lg:flex-1">
+          <div key={i} className="w-[calc(50vw-3rem)] shrink-0 sm:w-64 lg:w-auto lg:flex-1">
             <ProductCardSkeleton />
           </div>
         ))}
@@ -184,7 +195,7 @@ export function ProductRail({ products = [], loading = false }) {
                  lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0"
     >
       {products.slice(0, 8).map((product, i) => (
-        <div key={product._id} className="w-[46vw] shrink-0 sm:w-64 lg:w-auto">
+        <div key={product._id} className="w-[calc(50vw-3rem)] shrink-0 sm:w-64 lg:w-auto">
           <ProductCard product={product} priority={i < 4} />
         </div>
       ))}

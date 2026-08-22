@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, FolderTree, Boxes, ShoppingBag, Users, Ticket,
-  Menu, ExternalLink, LogOut,
+  Menu, X, ExternalLink, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useBodyScrollLock } from '../../hooks';
+import { useBodyScrollLock, useFocusTrap } from '../../hooks';
 import { initialsOf } from '../../utils/format';
 
 const NAV = [
@@ -22,23 +22,42 @@ export default function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const drawerRef = useRef(null);
 
   useBodyScrollLock(sidebarOpen);
+  useFocusTrap(drawerRef, sidebarOpen);
+
+  useEffect(() => {
+    if (!sidebarOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [sidebarOpen]);
 
   const handleLogout = async () => {
     await logout();
     navigate('/');
   };
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ onClose }) => (
     <div className="flex h-full flex-col">
-      <div className="border-b border-white/10 px-6 py-5">
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-6 py-5">
         <Link to="/admin" className="block">
           <span className="font-display text-lg uppercase tracking-luxe text-white">Touch</span>
           <span className="mt-0.5 block text-2xs uppercase tracking-wider2 text-white/40">
             Store admin
           </span>
         </Link>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="icon-btn-sm -mr-2 -mt-1 text-white/60 hover:text-white"
+          >
+            <X size={19} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3" aria-label="Admin">
@@ -104,23 +123,35 @@ export default function AdminLayout() {
 
       {sidebarOpen && (
         <div className="fixed inset-0 z-[80] lg:hidden">
-          <div className="absolute inset-0 animate-fade-in bg-ink/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-60 animate-slide-in-right bg-ink">
-            <SidebarContent />
+          <div
+            className="absolute inset-0 animate-fade-in bg-ink/50"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          <aside
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Admin menu"
+            tabIndex={-1}
+            className="absolute inset-y-0 left-0 w-[17rem] max-w-[85%] animate-slide-in-left bg-ink"
+          >
+            <SidebarContent onClose={() => setSidebarOpen(false)} />
           </aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 border-b border-line bg-paper-raised">
-          <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
+          <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 sm:px-6">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open menu"
-              className="-ml-2 p-2 text-ink-soft lg:hidden"
+              aria-expanded={sidebarOpen}
+              className="icon-btn -ml-3 lg:hidden"
             >
-              <Menu size={19} />
+              <Menu size={19} aria-hidden="true" />
             </button>
             <span className="font-display text-base uppercase tracking-wider2 lg:hidden">Touch</span>
             <div className="ml-auto">
@@ -128,7 +159,7 @@ export default function AdminLayout() {
                 to="/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-ink-muted hover:text-ink"
+                className="whitespace-nowrap text-xs text-ink-muted hover:text-ink"
               >
                 View store ↗
               </Link>

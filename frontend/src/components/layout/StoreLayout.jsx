@@ -4,6 +4,9 @@ import { Truck, RotateCcw, ShieldCheck } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { categoryApi } from '../../api/endpoints';
+import { useMediaQuery } from '../../hooks';
+import { FREE_SHIPPING_THRESHOLD, RETURN_WINDOW_DAYS } from '../../config/store';
+import { formatPrice } from '../../utils/format';
 
 /**
  * Announcement bar.
@@ -11,27 +14,69 @@ import { categoryApi } from '../../api/endpoints';
  * These three statements are configuration-backed facts, not marketing
  * invention: free shipping above the configured threshold, the published
  * returns window, and the fact that payment is handled by a verified gateway.
- * Nothing here promises a delivery time the business has not committed to.
+ * The two numbers come from `config/store`, which mirrors what the API
+ * actually enforces, so the strip can never contradict the checkout.
+ *
+ * Layout: on a tablet and up all three sit on one line, evenly spaced and
+ * separated by a hairline rule. Below that there is not enough width for three
+ * legible items, so rather than shrink them or wrap onto a second line the
+ * strip becomes a ticker showing one statement at a time — the bar keeps a
+ * fixed height, nothing is truncated, and nothing is hidden from the customer.
  */
+const ANNOUNCEMENTS = [
+  { icon: Truck, text: `Free shipping over ${formatPrice(FREE_SHIPPING_THRESHOLD)}` },
+  { icon: RotateCcw, text: `${RETURN_WINDOW_DAYS}-day returns` },
+  { icon: ShieldCheck, text: 'Secure checkout' },
+];
+
+const TICKER_INTERVAL = 4000;
+
 function AnnouncementBar() {
-  const items = [
-    { icon: Truck, text: 'Free shipping over ₹1,499' },
-    { icon: RotateCcw, text: '7-day returns' },
-    { icon: ShieldCheck, text: 'Secure checkout' },
-  ];
+  const [index, setIndex] = useState(0);
+  const isCompact = useMediaQuery('(max-width: 639px)');
+  const { icon: CurrentIcon, text: currentText } = ANNOUNCEMENTS[index];
+
+  // The interval only exists while the ticker is the layout in use.
+  useEffect(() => {
+    if (!isCompact) return undefined;
+    const id = setInterval(
+      () => setIndex((i) => (i + 1) % ANNOUNCEMENTS.length),
+      TICKER_INTERVAL
+    );
+    return () => clearInterval(id);
+  }, [isCompact]);
 
   return (
-    <div className="border-b border-line bg-ink text-paper">
+    <div className="border-b border-ink-soft/30 bg-ink text-paper">
       <div className="shell">
-        <ul className="flex items-center justify-center gap-6 py-2.5 sm:gap-10">
-          {items.map(({ icon: Icon, text }, i) => (
-            <li
-              key={text}
-              className={`flex items-center gap-2 text-2xs uppercase tracking-wider2
-                          ${i > 0 ? 'hidden sm:flex' : ''}`}
-            >
-              <Icon size={13} className="shrink-0 opacity-70" aria-hidden="true" />
-              {text}
+        {/* ── Phone: one statement at a time ── */}
+        <div className="relative flex h-9 items-center justify-center sm:hidden">
+          <p key={currentText} className="announce-item animate-fade-in" aria-hidden="true">
+            <CurrentIcon size={13} className="shrink-0 opacity-70" aria-hidden="true" />
+            {currentText}
+          </p>
+
+          {/* The rotation is decorative; assistive tech gets the full list once
+              rather than an announcement every four seconds. */}
+          <ul className="sr-only">
+            {ANNOUNCEMENTS.map(({ text }) => <li key={text}>{text}</li>)}
+          </ul>
+        </div>
+
+        {/* ── Tablet and up: all three, evenly spaced ── */}
+        <ul className="hidden h-10 items-center justify-center sm:flex">
+          {ANNOUNCEMENTS.map(({ icon: Icon, text }, i) => (
+            <li key={text} className="flex items-center">
+              {i > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="mx-6 h-3 w-px bg-paper/25 lg:mx-10"
+                />
+              )}
+              <span className="announce-item">
+                <Icon size={13} className="shrink-0 opacity-70" aria-hidden="true" />
+                {text}
+              </span>
             </li>
           ))}
         </ul>

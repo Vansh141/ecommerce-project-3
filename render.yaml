@@ -90,6 +90,10 @@ services:
         value: "20000"
       - key: LOW_STOCK_THRESHOLD
         value: "5"
+      - key: ORDER_CANCEL_WINDOW_HOURS
+        value: "24"
+      - key: MAX_QTY_PER_ITEM
+        value: "10"
       - key: LOG_LEVEL
         value: info
 
@@ -107,6 +111,19 @@ services:
       # e.g. https://touch-api.onrender.com/api
       - key: VITE_API_URL
         sync: false
+
+      # Storefront copies of the commerce settings the API enforces. These are
+      # baked into the bundle at build time, so they must be kept in step with
+      # the API service above — otherwise the site advertises one shipping
+      # threshold and charges another.
+      - key: VITE_FREE_SHIPPING_THRESHOLD
+        value: "1499"
+      - key: VITE_SHIPPING_FLAT_RATE
+        value: "79"
+      - key: VITE_RETURN_WINDOW_DAYS
+        value: "7"
+      - key: VITE_ORDER_CANCEL_WINDOW_HOURS
+        value: "24"
     routes:
       # SPA fallback: every unmatched path must serve index.html so that a
       # deep link like /product/amara-linen-midi-dress works on a hard refresh.

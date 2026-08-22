@@ -97,7 +97,7 @@ export function AdminCategories() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl">Categories</h1>
+          <h1 className="text-display-3">Categories</h1>
           <p className="mt-1 text-sm text-ink-muted">{categories.length} categories</p>
         </div>
         <Button onClick={openCreate}><Plus size={15} aria-hidden="true" /> New category</Button>
@@ -235,7 +235,7 @@ export function AdminInventory() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl">Inventory</h1>
+        <h1 className="text-display-3">Inventory</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Update stock per size. Low stock is {threshold} or fewer.
         </p>
@@ -369,7 +369,7 @@ export function AdminCustomers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl">Customers</h1>
+        <h1 className="text-display-3">Customers</h1>
         <p className="mt-1 text-sm text-ink-muted">{meta?.total ?? 0} accounts</p>
       </div>
 
@@ -550,7 +550,7 @@ export function AdminCoupons() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl">Coupons</h1>
+          <h1 className="text-display-3">Coupons</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Discounts are calculated on the server — a customer cannot alter the amount.
           </p>

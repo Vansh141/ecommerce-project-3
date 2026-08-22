@@ -118,7 +118,21 @@ async function uploadToLocalDisk(processed) {
 
   await fs.writeFile(destination, processed.buffer);
 
-  const base = config.isProduction ? '' : `http://localhost:${config.port}`;
+  // The storefront usually runs on a different origin than the API, so a bare
+  // `/uploads/...` path would resolve against the storefront and 404. Prefer an
+  // explicitly configured public API origin; fall back to the dev server.
+  const base = config.apiPublicUrl
+    ? config.apiPublicUrl.replace(/\/$/, '')
+    : config.isProduction
+      ? ''
+      : `http://localhost:${config.port}`;
+
+  if (config.isProduction && !base) {
+    logger.warn(
+      'Storing an upload on local disk with no API_PUBLIC_URL set. The image URL will be relative and will not load from a storefront on another origin. Configure Cloudinary, or set API_PUBLIC_URL.'
+    );
+  }
+
   return {
     url: `${base}/uploads/${filename}`,
     publicId: `local:${filename}`,

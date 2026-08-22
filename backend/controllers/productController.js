@@ -105,7 +105,12 @@ const listProducts = asyncHandler(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 12, 60);
   const skip = (page - 1) * limit;
 
-  const filter = await buildProductFilter(req.query);
+  // Only an authenticated admin may see anything other than `active`. For
+  // everyone else `includeInactive` stays false, so a ?status=draft query is
+  // ignored and drafts remain invisible to shoppers.
+  const filter = await buildProductFilter(req.query, {
+    includeInactive: req.user?.role === 'admin',
+  });
   if (filter === null) {
     return sendSuccess(res, { products: [] }, { meta: paginationMeta({ page, limit, total: 0 }) });
   }

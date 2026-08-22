@@ -249,7 +249,7 @@ export default function AdminOrders() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl">Orders</h1>
+        <h1 className="text-display-3">Orders</h1>
         <p className="mt-1 text-sm text-ink-muted">{meta?.total ?? 0} orders</p>
       </div>
 

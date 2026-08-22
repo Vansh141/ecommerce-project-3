@@ -25,10 +25,14 @@ export function AccountLayout() {
 
   return (
     <div className="shell py-10 sm:py-14">
-      <h1 className="mb-9 text-3xl sm:text-4xl">My account</h1>
+      <h1 className="mb-7 text-display-2 sm:mb-9">My account</h1>
 
       <div className="grid gap-9 lg:grid-cols-[15rem_1fr] lg:gap-14">
-        <aside>
+        {/* `min-w-0` is load-bearing: a grid item defaults to `min-width:auto`,
+            so without it the column stretches to the nav rail's min-content
+            width and the whole page scrolls sideways on a narrow phone —
+            the rail's own `overflow-x-auto` never gets a chance to scroll. */}
+        <aside className="min-w-0">
           <div className="mb-6 flex items-center gap-3.5">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full
                             bg-clay-faint font-display text-base text-clay-deep">
@@ -40,15 +44,22 @@ export function AccountLayout() {
             </div>
           </div>
 
-          <nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Account">
+          {/* A scrollable rail on a phone, a stacked list from `lg`. The
+              negative gutter lets the rail bleed to the screen edge so the
+              last tab is never clipped mid-word. */}
+          <nav
+            className="no-scrollbar -mx-5 flex gap-1 overflow-x-auto px-5 pb-1
+                       sm:-mx-8 sm:px-8 lg:mx-0 lg:flex-col lg:px-0 lg:pb-0"
+            aria-label="Account"
+          >
             {NAV.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
                 className={({ isActive }) =>
-                  `flex shrink-0 items-center gap-2.5 rounded-control px-3.5 py-2.5 text-sm
-                   transition-colors ${
+                  `flex min-h-[2.75rem] shrink-0 items-center gap-2.5 whitespace-nowrap
+                   rounded-control px-3.5 py-2.5 text-sm transition-colors ${
                      isActive
                        ? 'bg-paper-sunken font-medium text-ink'
                        : 'text-ink-muted hover:bg-paper-sunken hover:text-ink'
@@ -327,7 +338,7 @@ export function Wishlist() {
 
   return (
     <div className="shell py-10 sm:py-14">
-      <h1 className="mb-9 text-3xl sm:text-4xl">Wishlist</h1>
+      <h1 className="mb-7 text-display-2 sm:mb-9">Wishlist</h1>
 
       {items.length === 0 ? (
         <EmptyState

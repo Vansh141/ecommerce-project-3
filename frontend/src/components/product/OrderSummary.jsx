@@ -38,7 +38,7 @@ export default function OrderSummary({ showCoupon = true, children, sticky = tru
   );
 
   return (
-    <div className={sticky ? 'lg:sticky lg:top-24' : ''}>
+    <div className={sticky ? 'lg:sticky lg:top-32' : ''}>
       <div className="card-pad">
         <h2 className="mb-5 text-base">Order summary</h2>
 
@@ -102,9 +102,9 @@ export default function OrderSummary({ showCoupon = true, children, sticky = tru
                   type="button"
                   onClick={() => { removeCoupon(); setCode(''); }}
                   aria-label="Remove coupon"
-                  className="p-1 text-success/70 hover:text-success"
+                  className="-m-1.5 shrink-0 p-1.5 text-success/70 hover:text-success"
                 >
-                  <X size={14} />
+                  <X size={14} aria-hidden="true" />
                 </button>
               </div>
             ) : (
@@ -116,10 +116,12 @@ export default function OrderSummary({ showCoupon = true, children, sticky = tru
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     placeholder="Enter code"
-                    className="field flex-1 uppercase"
+                    className="field min-w-0 flex-1 uppercase"
                     maxLength={32}
                   />
-                  <Button type="submit" variant="secondary" disabled={!code.trim()}>Apply</Button>
+                  <Button type="submit" variant="secondary" disabled={!code.trim()} className="shrink-0">
+                    Apply
+                  </Button>
                 </div>
               </form>
             )}

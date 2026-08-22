@@ -322,7 +322,7 @@ export default function AdminProducts() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl">Products</h1>
+          <h1 className="text-display-3">Products</h1>
           <p className="mt-1 text-sm text-ink-muted">{meta?.total ?? 0} in catalogue</p>
         </div>
         <Button onClick={openCreate} disabled={categories.length === 0}>

@@ -236,8 +236,8 @@ export default function Checkout() {
 
   return (
     <div className="shell py-10 sm:py-14">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl sm:text-4xl">Checkout</h1>
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-display-2">Checkout</h1>
         <Link
           to="/cart"
           className="inline-flex items-center gap-1.5 text-xs font-medium uppercase
@@ -257,7 +257,7 @@ export default function Checkout() {
         </Alert>
       )}
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:gap-14">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14">
         <div>
           {/* ── Step 1: address ── */}
           {step === 'address' && (
@@ -281,7 +281,7 @@ export default function Checkout() {
                     {addresses.map((a) => (
                       <li key={a._id}>
                         <label
-                          className={`flex cursor-pointer gap-3.5 rounded-card border p-4 transition-colors ${
+                          className={`flex cursor-pointer gap-3.5 rounded-card border p-4 transition-colors sm:p-5 ${
                             selectedAddressId === a._id
                               ? 'border-ink bg-paper-raised'
                               : 'border-line bg-paper-raised hover:border-line-strong'
@@ -313,7 +313,7 @@ export default function Checkout() {
 
                   <Button
                     variant="ghost"
-                    className="mt-4"
+                    className="mt-4 w-full sm:w-auto"
                     onClick={() => setAddingAddress(true)}
                   >
                     <Plus size={14} aria-hidden="true" /> Add a new address
@@ -324,7 +324,7 @@ export default function Checkout() {
               {addresses.length > 0 && (
                 <Button
                   size="lg"
-                  className="mt-7"
+                  className="mt-7 w-full sm:w-auto"
                   disabled={!canContinueAddress}
                   onClick={() => setStep('payment')}
                 >
@@ -347,7 +347,7 @@ export default function Checkout() {
                 <div className="space-y-3">
                   {payConfig?.razorpay?.enabled && (
                     <label
-                      className={`flex cursor-pointer items-start gap-3.5 rounded-card border p-4 transition-colors ${
+                      className={`flex cursor-pointer items-start gap-3.5 rounded-card border p-4 transition-colors sm:p-5 ${
                         paymentMethod === 'RAZORPAY' ? 'border-ink' : 'border-line hover:border-line-strong'
                       }`}
                     >
@@ -369,7 +369,7 @@ export default function Checkout() {
 
                   {payConfig?.cod?.enabled && (
                     <label
-                      className={`flex cursor-pointer items-start gap-3.5 rounded-card border p-4 transition-colors ${
+                      className={`flex cursor-pointer items-start gap-3.5 rounded-card border p-4 transition-colors sm:p-5 ${
                         !codAvailable
                           ? 'cursor-not-allowed border-line opacity-55'
                           : paymentMethod === 'COD'
@@ -407,9 +407,21 @@ export default function Checkout() {
                 </div>
               )}
 
-              <div className="mt-7 flex gap-3">
-                <Button variant="ghost" size="lg" onClick={() => setStep('address')}>Back</Button>
-                <Button size="lg" disabled={!canContinuePayment} onClick={() => setStep('review')}>
+              <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row">
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="sm:shrink-0"
+                  onClick={() => setStep('address')}
+                >
+                  Back
+                </Button>
+                <Button
+                  size="lg"
+                  className="sm:flex-1"
+                  disabled={!canContinuePayment}
+                  onClick={() => setStep('review')}
+                >
                   Review order
                 </Button>
               </div>
@@ -464,14 +476,14 @@ export default function Checkout() {
                 </h3>
                 <ul className="divide-y divide-line">
                   {items.map((item) => (
-                    <li key={`${item.product}-${item.variantId}`} className="flex gap-4 p-5 sm:p-6">
+                    <li key={`${item.product}-${item.variantId}`} className="flex gap-4 p-4 sm:p-6">
                       <div className="aspect-[3/4] w-16 shrink-0 overflow-hidden bg-paper-sunken">
                         {item.image && (
                           <img src={item.image} alt="" loading="lazy" className="h-full w-full object-cover" />
                         )}
                       </div>
-                      <div className="flex min-w-0 flex-1 justify-between gap-3">
-                        <div className="min-w-0">
+                      <div className="flex min-w-0 flex-1 flex-wrap justify-between gap-x-3 gap-y-1">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm leading-snug">{item.name}</p>
                           <p className="mt-1 text-xs text-ink-muted">
                             Size {item.size} · Qty {item.qty}
@@ -486,8 +498,15 @@ export default function Checkout() {
                 </ul>
               </div>
 
-              <div className="flex gap-3">
-                <Button variant="ghost" size="lg" onClick={() => setStep('payment')}>Back</Button>
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className="sm:shrink-0"
+                  onClick={() => setStep('payment')}
+                >
+                  Back
+                </Button>
                 <Button
                   size="lg"
                   fullWidth

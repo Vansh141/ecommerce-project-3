@@ -73,7 +73,9 @@ router.use('/categories', categories);
 const products = express.Router();
 
 // Literal paths first — otherwise "/facets" would be captured by "/:slug".
-products.get('/', v.productListRules, validate, productController.listProducts);
+// `optionalAuth` identifies a signed-in admin so the catalogue list can
+// include draft and archived products. Shoppers still only ever see `active`.
+products.get('/', optionalAuth, v.productListRules, validate, productController.listProducts);
 products.get('/facets', productController.getFacets);
 products.get('/collections/home', productController.getHomeCollections);
 

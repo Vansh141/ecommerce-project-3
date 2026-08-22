@@ -22,7 +22,12 @@
       property="og:description"
       content="Linen, cotton and silk pieces designed in Mumbai and made in small runs."
     />
-    <meta property="og:image" content="/logo.jpg" />
+    <!-- Open Graph requires an ABSOLUTE URL: Facebook, WhatsApp and X fetch the
+         image server-side with no page context to resolve a relative path
+         against, so "/logo.jpg" silently yields a link preview with no image.
+         Replace the origin below with the production domain before launch. -->
+    <meta property="og:image" content="https://www.example.com/logo.jpg" />
+    <meta property="og:url" content="https://www.example.com/" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="TOUCH — Considered clothing" />
@@ -30,7 +35,7 @@
       name="twitter:description"
       content="Linen, cotton and silk pieces designed in Mumbai and made in small runs."
     />
-    <meta name="twitter:image" content="/logo.jpg" />
+    <meta name="twitter:image" content="https://www.example.com/logo.jpg" />
 
     <!-- Fonts are fetched from Google; preconnecting removes a round trip on
          first paint, which is the slowest moment on a mobile connection. -->

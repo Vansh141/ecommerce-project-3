@@ -14,6 +14,9 @@ import {
   Button, Breadcrumbs, Skeleton, Alert, EmptyState, SectionHeading, Textarea, Modal,
 } from '../components/ui';
 import { formatPrice, discountPercent, sortSizes, formatDate } from '../utils/format';
+import {
+  FREE_SHIPPING_THRESHOLD, SHIPPING_FLAT_RATE, RETURN_WINDOW_DAYS,
+} from '../config/store';
 
 function Stars({ value = 0, size = 14 }) {
   return (
@@ -58,7 +61,7 @@ function Gallery({ images = [], name }) {
               aria-selected={i === active}
               aria-label={`View image ${i + 1}`}
               onClick={() => setActive(i)}
-              className={`aspect-[3/4] w-16 shrink-0 overflow-hidden border transition-colors sm:w-full ${
+              className={`aspect-[3/4] w-[3.25rem] shrink-0 overflow-hidden border transition-colors sm:w-full ${
                 i === active ? 'border-ink' : 'border-line hover:border-line-strong'
               }`}
             >
@@ -151,7 +154,7 @@ function ReviewSection({ product }) {
   };
 
   return (
-    <section className="border-t border-line py-16">
+    <section className="border-t border-line section">
       <div className="shell">
         <SectionHeading
           eyebrow="Feedback"
@@ -167,7 +170,7 @@ function ReviewSection({ product }) {
 
         {product.ratingCount > 0 && (
           <div className="mb-8 flex items-center gap-4">
-            <span className="font-display text-4xl">{product.ratingAverage.toFixed(1)}</span>
+            <span className="font-display text-3xl sm:text-4xl">{product.ratingAverage.toFixed(1)}</span>
             <div>
               <Stars value={product.ratingAverage} size={16} />
               <p className="mt-1 text-xs text-ink-muted">
@@ -377,7 +380,7 @@ export default function ProductDetail() {
           <div className="lg:pt-4">
             {product.brand && <p className="eyebrow mb-3">{product.brand}</p>}
 
-            <h1 className="text-3xl leading-tight sm:text-4xl">{product.name}</h1>
+            <h1 className="text-display-2">{product.name}</h1>
 
             {product.ratingCount > 0 && (
               <a href="#reviews" className="mt-3 inline-flex items-center gap-2 text-sm text-ink-muted hover:text-ink">
@@ -484,7 +487,12 @@ export default function ProductDetail() {
                 fullWidth
                 onClick={handleAdd}
                 disabled={outOfStock}
-                className="flex-1"
+                // `sm:` matters: the row only becomes horizontal at `sm`. An
+                // unqualified `flex-1` sets flex-basis:0 on the *height* while
+                // the container is still a column, which overrides the button's
+                // fixed height and collapses the primary CTA to a text-height
+                // sliver on every phone.
+                className="sm:flex-1"
               >
                 {outOfStock ? 'Sold out' : 'Add to bag'}
               </Button>
@@ -517,13 +525,16 @@ export default function ProductDetail() {
                  the business has not made. ── */}
             <ul className="mt-8 space-y-2.5 border-t border-line pt-6">
               {[
-                { icon: Truck, text: 'Free shipping on orders over ₹1,499' },
-                { icon: RotateCcw, text: '7-day returns on unworn items' },
+                {
+                  icon: Truck,
+                  text: `Free shipping on orders over ${formatPrice(FREE_SHIPPING_THRESHOLD)}`,
+                },
+                { icon: RotateCcw, text: `${RETURN_WINDOW_DAYS}-day returns on unworn items` },
                 { icon: ShieldCheck, text: 'Secure payment · Cash on delivery available' },
               ].map(({ icon: Icon, text }) => (
-                <li key={text} className="flex items-center gap-2.5 text-sm text-ink-muted">
-                  <Icon size={15} className="shrink-0 text-clay" aria-hidden="true" />
-                  {text}
+                <li key={text} className="flex items-start gap-2.5 text-sm leading-relaxed text-ink-muted">
+                  <Icon size={15} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
+                  <span>{text}</span>
                 </li>
               ))}
             </ul>
@@ -561,9 +572,10 @@ export default function ProductDetail() {
 
               <Accordion title="Shipping & returns">
                 <p>
-                  Orders are dispatched from Mumbai. Shipping is free on orders over ₹1,499;
-                  below that a flat ₹79 applies. Unworn items in original condition can be
-                  returned within 7 days of delivery.
+                  Orders are dispatched from Mumbai. Shipping is free on orders over{' '}
+                  {formatPrice(FREE_SHIPPING_THRESHOLD)}; below that a flat{' '}
+                  {formatPrice(SHIPPING_FLAT_RATE)} applies. Unworn items in original condition
+                  can be returned within {RETURN_WINDOW_DAYS} days of delivery.
                 </p>
                 <Link to="/shipping-returns" className="link mt-3 inline-block text-sm">
                   Read the full policy
@@ -579,7 +591,7 @@ export default function ProductDetail() {
       </div>
 
       {relatedData?.products?.length > 0 && (
-        <section className="border-t border-line py-16">
+        <section className="border-t border-line section">
           <div className="shell">
             <SectionHeading eyebrow="You may also like" title="Complete the look" />
             <ProductGrid products={relatedData.products.slice(0, 4)} />

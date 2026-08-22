@@ -232,11 +232,11 @@ export function Skeleton({ className = '' }) {
 
 export function EmptyState({ icon: Icon = Inbox, title, description, action, className = '' }) {
   return (
-    <div className={`flex flex-col items-center justify-center px-6 py-20 text-center ${className}`}>
+    <div className={`flex flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-20 ${className}`}>
       <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-paper-sunken">
         <Icon size={22} className="text-ink-faint" aria-hidden="true" />
       </div>
-      <h2 className="mb-2 text-xl">{title}</h2>
+      <h2 className="mb-2 text-xl sm:text-2xl">{title}</h2>
       {description && <p className="mb-7 max-w-sm text-sm leading-relaxed text-ink-muted">{description}</p>}
       {action}
     </div>
@@ -321,11 +321,11 @@ export function Modal({ open, onClose, title, description, children, footer, siz
         aria-label={title}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        className={`relative flex max-h-[92vh] w-full ${widths[size]} animate-fade-up flex-col
-                    rounded-t-card border border-line bg-paper-raised shadow-pop sm:rounded-card`}
+        className={`relative flex max-h-[90dvh] w-full ${widths[size]} animate-fade-up flex-col
+                    rounded-t-card border border-line bg-paper-raised shadow-pop sm:max-h-[92vh] sm:rounded-card`}
       >
         {title && (
-          <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+          <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6 sm:py-5">
             <div>
               <h2 className="text-lg">{title}</h2>
               {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
@@ -334,16 +334,16 @@ export function Modal({ open, onClose, title, description, children, footer, siz
               type="button"
               onClick={onClose}
               aria-label="Close dialog"
-              className="-m-2 shrink-0 p-2 text-ink-faint transition-colors hover:text-ink"
+              className="icon-btn-sm -mr-2 shrink-0 text-ink-faint"
             >
               <X size={18} />
             </button>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">{children}</div>
 
-        {footer && <div className="border-t border-line px-6 py-4">{footer}</div>}
+        {footer && <div className="border-t border-line px-5 py-4 pb-safe sm:px-6 sm:pb-4">{footer}</div>}
       </div>
     </div>
   );
@@ -383,10 +383,10 @@ export function Badge({ tone = 'neutral', children, className = '' }) {
 
 export function SectionHeading({ eyebrow, title, action, className = '' }) {
   return (
-    <div className={`mb-8 flex items-end justify-between gap-6 ${className}`}>
-      <div>
+    <div className={`mb-6 flex items-end justify-between gap-4 sm:mb-8 sm:gap-6 ${className}`}>
+      <div className="min-w-0">
         {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h2 className="text-2xl sm:text-3xl">{title}</h2>
+        <h2 className="text-display-2">{title}</h2>
       </div>
       {action}
     </div>
@@ -403,7 +403,7 @@ export function Breadcrumbs({ items = [] }) {
             {item.to && i < items.length - 1 ? (
               <Link to={item.to} className="transition-colors hover:text-ink">{item.label}</Link>
             ) : (
-              <span className="text-ink" aria-current="page">{item.label}</span>
+              <span className="max-w-[16rem] truncate text-ink" aria-current="page">{item.label}</span>
             )}
           </li>
         ))}
@@ -424,7 +424,10 @@ export function Pagination({ page, totalPages, onChange, className = '' }) {
   pages.sort((a, b) => a - b);
 
   return (
-    <nav aria-label="Pagination" className={`flex items-center justify-center gap-1.5 ${className}`}>
+    <nav
+      aria-label="Pagination"
+      className={`flex flex-wrap items-center justify-center gap-1.5 ${className}`}
+    >
       <Button
         variant="ghost"
         size="sm"
@@ -443,7 +446,7 @@ export function Pagination({ page, totalPages, onChange, className = '' }) {
             onClick={() => onChange(p)}
             aria-current={p === page ? 'page' : undefined}
             aria-label={`Page ${p}`}
-            className={`h-9 min-w-9 rounded-control px-2.5 text-xs font-medium transition-colors ${
+            className={`h-10 min-w-10 rounded-control px-2.5 text-xs font-medium transition-colors ${
               p === page ? 'bg-ink text-paper' : 'border border-line text-ink-soft hover:border-ink hover:text-ink'
             }`}
           >

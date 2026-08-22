@@ -16,7 +16,7 @@ function AuthShell({ title, subtitle, children, footer }) {
     <div className="shell flex min-h-[70vh] items-center justify-center py-14">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl">{title}</h1>
+          <h1 className="text-display-3">{title}</h1>
           {subtitle && <p className="mt-2.5 text-sm text-ink-muted">{subtitle}</p>}
         </div>
         <div className="card p-7 sm:p-8">{children}</div>

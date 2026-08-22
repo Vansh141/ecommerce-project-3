@@ -32,8 +32,8 @@ export default function Cart() {
   };
 
   return (
-    <div className="shell py-10 sm:py-14">
-      <h1 className="mb-9 text-3xl sm:text-4xl">Your bag</h1>
+    <div className="shell py-10 pb-28 sm:py-14 lg:pb-14">
+      <h1 className="mb-7 text-display-2 sm:mb-9">Your bag</h1>
 
       {hasStockIssue && (
         <Alert tone="warning" title="Some items need attention" className="mb-6">
@@ -41,7 +41,7 @@ export default function Cart() {
         </Alert>
       )}
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_22rem] lg:gap-14">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14">
         <div>
           <ul className="divide-y divide-line border-y border-line">
             {items.map((item) => {
@@ -51,10 +51,11 @@ export default function Cart() {
               const maxQty = Math.min(item.availableStock ?? 10, 10);
 
               return (
-                <li key={`${item.product}-${item.variantId}`} className="flex gap-4 py-5 sm:gap-5">
+                <li key={`${item.product}-${item.variantId}`} className="flex gap-3.5 py-5 sm:gap-5">
                   <Link
                     to={`/product/${item.slug}`}
-                    className="aspect-[3/4] w-24 shrink-0 overflow-hidden bg-paper-sunken sm:w-28"
+                    aria-label={item.name}
+                    className="aspect-[3/4] w-[4.5rem] shrink-0 overflow-hidden bg-paper-sunken sm:w-28"
                   >
                     {item.image ? (
                       <img
@@ -88,7 +89,7 @@ export default function Cart() {
                         type="button"
                         onClick={() => removeItem(item.product, item.variantId)}
                         aria-label={`Remove ${item.name} size ${item.size} from bag`}
-                        className="-m-2 shrink-0 p-2 text-ink-faint transition-colors hover:text-danger"
+                        className="icon-btn-sm -mr-2 -mt-2 shrink-0 text-ink-faint hover:text-danger"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -101,7 +102,7 @@ export default function Cart() {
                       </p>
                     )}
 
-                    <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-4">
+                    <div className="mt-auto flex flex-wrap items-end justify-between gap-x-3 gap-y-2.5 pt-4">
                       <div className="flex h-10 items-center rounded-control border border-line">
                         <button
                           type="button"
@@ -168,6 +169,29 @@ export default function Cart() {
               </p>
             )}
           </OrderSummary>
+        </div>
+      </div>
+
+      {/* Below `lg` the order summary is a full screen away from the top of the
+          bag, so the total and the primary action stay pinned. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper-raised/95
+                   px-5 py-3 pb-safe backdrop-blur-md lg:hidden"
+      >
+        <div className="mx-auto flex max-w-site items-center gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-2xs uppercase tracking-wider2 text-ink-muted">Total</p>
+            <p className="truncate text-base font-medium leading-tight">
+              {pricing ? formatPriceExact(pricing.grandTotal) : '—'}
+            </p>
+          </div>
+          <Button
+            onClick={goToCheckout}
+            disabled={hasStockIssue || pricingLoading || !pricing}
+            className="shrink-0"
+          >
+            Checkout <ArrowRight size={15} aria-hidden="true" />
+          </Button>
         </div>
       </div>
     </div>

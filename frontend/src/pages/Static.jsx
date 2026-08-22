@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom';
 import { Mail, Instagram, MapPin, Send, CheckCircle2, Compass } from 'lucide-react';
 import { contactApi } from '../api/endpoints';
 import { useDocumentMeta } from '../hooks';
+import {
+  FREE_SHIPPING_THRESHOLD,
+  SHIPPING_FLAT_RATE,
+  RETURN_WINDOW_DAYS,
+  ORDER_CANCEL_WINDOW_HOURS,
+} from '../config/store';
+import { formatPrice } from '../utils/format';
 import { Button, Input, Textarea, Alert, EmptyState } from '../components/ui';
 
 function Page({ title, lead, children }) {
   return (
     <div className="shell py-14 sm:py-20">
       <div className="mx-auto max-w-2xl">
-        <h1 className="text-3xl sm:text-4xl">{title}</h1>
+        <h1 className="text-display-2">{title}</h1>
         {lead && <p className="mt-4 text-base leading-relaxed text-ink-muted">{lead}</p>}
         <div className="mt-10 space-y-6 text-sm leading-relaxed text-ink-soft">{children}</div>
       </div>
@@ -112,7 +119,7 @@ export function Contact() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-center">
           <p className="eyebrow mb-3">Get in touch</p>
-          <h1 className="text-3xl sm:text-4xl">Contact us</h1>
+          <h1 className="text-display-2">Contact us</h1>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-ink-muted">
             Questions about an order, a size or a return — we read everything and
             reply within 24–48 hours on business days.
@@ -206,10 +213,31 @@ export function Contact() {
 
 /* ═════════════════════════ Policies ══════════════════════════════════════ */
 
+/**
+ * ⚠️  PLACEHOLDER POLICY CONTENT — CONFIRM WITH THE BUSINESS OWNER BEFORE LAUNCH.
+ *
+ * The numbers below (free-shipping threshold, flat rate, return window,
+ * cancellation window) are read from `config/store`, which mirrors the values
+ * the API actually enforces — change them there, or via the matching backend
+ * env vars, and these pages follow.
+ *
+ * The PROSE is a different matter. These commitments have not been agreed with
+ * anyone and are not enforced by any code:
+ *   • "dispatched within 1–2 business days"
+ *   • "refunds ... typically within 5–7 business days of receipt"
+ *   • "we read everything and reply within 24–48 hours on business days"
+ *   • the studio location (Mumbai) and the support address
+ *   • which items are non-returnable for hygiene reasons
+ *   • the "final sale" concept — nothing in the product model marks an item
+ *     as final sale today, so that sentence currently describes nothing
+ *
+ * Every one of these is a promise the business has to be able to keep. Read
+ * them with the owner and edit to match reality before the store goes live.
+ */
 export function ShippingReturns() {
   useDocumentMeta({
     title: 'Shipping & returns',
-    description: 'How TOUCH ships orders across India and how to return an unworn piece within 7 days.',
+    description: `How TOUCH ships orders across India and how to return an unworn piece within ${RETURN_WINDOW_DAYS} days.`,
   });
 
   return (
@@ -217,7 +245,8 @@ export function ShippingReturns() {
       <H2>Shipping</H2>
       <p>
         We ship across India from our studio in Mumbai. Shipping is free on orders
-        over ₹1,499. Below that, a flat ₹79 applies, shown at checkout before you pay.
+        over {formatPrice(FREE_SHIPPING_THRESHOLD)}. Below that, a flat{' '}
+        {formatPrice(SHIPPING_FLAT_RATE)} applies, shown at checkout before you pay.
       </p>
       <p>
         Orders are dispatched within 1–2 business days. Once dispatched you will
@@ -230,7 +259,7 @@ export function ShippingReturns() {
       <H2>Returns</H2>
       <p>
         Unworn, unwashed items in original condition with tags attached can be
-        returned within 7 days of delivery. Write to us at{' '}
+        returned within {RETURN_WINDOW_DAYS} days of delivery. Write to us at{' '}
         <a href="mailto:support@touchfashion.in" className="link">support@touchfashion.in</a>{' '}
         with your order number and we will arrange it.
       </p>
@@ -242,8 +271,8 @@ export function ShippingReturns() {
       <H2>Cancellations</H2>
       <p>
         You can cancel an order yourself from your order page any time before it is
-        packed, within 24 hours of placing it. After that, write to us and we will
-        help if it has not already shipped.
+        packed, within {ORDER_CANCEL_WINDOW_HOURS} hours of placing it. After that,
+        write to us and we will help if it has not already shipped.
       </p>
 
       <H2>Exceptions</H2>

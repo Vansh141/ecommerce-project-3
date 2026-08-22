@@ -75,12 +75,17 @@ export default {
           '0%': { transform: 'translateX(100%)' },
           '100%': { transform: 'translateX(0)' },
         },
+        'slide-in-left': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
       },
       animation: {
         shimmer: 'shimmer 1.6s infinite',
         'fade-up': 'fade-up 0.4s ease-out both',
         'fade-in': 'fade-in 0.25s ease-out both',
         'slide-in-right': 'slide-in-right 0.28s cubic-bezier(0.22,1,0.36,1) both',
+        'slide-in-left': 'slide-in-left 0.28s cubic-bezier(0.22,1,0.36,1) both',
       },
       transitionTimingFunction: {
         luxe: 'cubic-bezier(0.22, 1, 0.36, 1)',

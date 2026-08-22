@@ -164,6 +164,17 @@ if (CLIENT_URL && isProduction && /(?:localhost|127\.0\.0\.1)/i.test(CLIENT_URL)
   errors.push('CLIENT_URL points at localhost but NODE_ENV=production.');
 }
 
+/**
+ * Public origin of THIS API, used to build absolute URLs for locally stored
+ * uploads. Only needed when Cloudinary is unconfigured and the storefront is
+ * served from a different origin than the API — otherwise a relative
+ * `/uploads/...` URL would resolve against the storefront and 404.
+ */
+const API_PUBLIC_URL = str('API_PUBLIC_URL');
+if (API_PUBLIC_URL && isProduction && /(?:localhost|127\.0\.0\.1)/i.test(API_PUBLIC_URL)) {
+  errors.push('API_PUBLIC_URL points at localhost but NODE_ENV=production.');
+}
+
 const corsFallback = CLIENT_URL
   ? isProduction
     ? [CLIENT_URL]
@@ -283,6 +294,7 @@ const config = Object.freeze({
   port: PORT,
   mongoUri: MONGO_URI,
   clientUrl: CLIENT_URL,
+  apiPublicUrl: API_PUBLIC_URL,
   corsOrigins: CORS_ORIGINS,
   trustProxy: TRUST_PROXY,
   jwt: Object.freeze({

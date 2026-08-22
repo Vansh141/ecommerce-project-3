@@ -55,7 +55,8 @@ export function ToastProvider({ children }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2 p-4 sm:items-end sm:p-6"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2
+                   p-4 pb-safe sm:items-end sm:p-6"
       >
         {toasts.map(({ id, message, tone }) => {
           const { icon: Icon, cls } = TONES[tone] || TONES.info;
@@ -71,9 +72,9 @@ export function ToastProvider({ children }) {
                 type="button"
                 onClick={() => dismiss(id)}
                 aria-label="Dismiss notification"
-                className="-m-1 shrink-0 p-1 text-ink-faint transition-colors hover:text-ink"
+                className="-m-1.5 shrink-0 p-1.5 text-ink-faint transition-colors hover:text-ink"
               >
-                <X size={15} />
+                <X size={15} aria-hidden="true" />
               </button>
             </div>
           );

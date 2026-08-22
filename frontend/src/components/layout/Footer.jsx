@@ -28,14 +28,14 @@ export default function Footer({ categories = [] }) {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-24 border-t border-line bg-paper-raised">
+    <footer className="mt-16 border-t border-line bg-paper-raised sm:mt-20 lg:mt-24">
       {/* ── Newsletter ── */}
       <div className="border-b border-line">
-        <div className="shell py-14">
-          <div className="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-16">
+        <div className="shell section-tight">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-center lg:gap-16">
             <div>
               <p className="eyebrow mb-3">Newsletter</p>
-              <h2 className="text-2xl sm:text-3xl">Be first to know</h2>
+              <h2 className="text-display-3">Be first to know</h2>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-ink-muted">
                 New arrivals, restocks and studio notes. No more than twice a month.
               </p>
@@ -52,9 +52,14 @@ export default function Footer({ categories = [] }) {
                   onChange={(e) => { setEmail(e.target.value); if (state !== 'idle') setState('idle'); }}
                   placeholder="your@email.com"
                   disabled={state === 'loading'}
-                  className="field flex-1"
+                  className="field min-w-0 flex-1"
                 />
-                <Button type="submit" loading={state === 'loading'} disabled={state === 'done'}>
+                <Button
+                  type="submit"
+                  loading={state === 'loading'}
+                  disabled={state === 'done'}
+                  className="shrink-0"
+                >
                   {state === 'done' ? <><Check size={14} aria-hidden="true" /> Subscribed</> : 'Subscribe'}
                 </Button>
               </div>
@@ -73,8 +78,8 @@ export default function Footer({ categories = [] }) {
       </div>
 
       {/* ── Links ── */}
-      <div className="shell py-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="shell section-tight">
+        <div className="grid gap-9 sm:grid-cols-2 sm:gap-10 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <span className="font-display text-2xl uppercase tracking-luxe text-ink">Touch</span>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-muted">
@@ -88,7 +93,7 @@ export default function Footer({ categories = [] }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="TOUCH on Instagram"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-line
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-line
                            text-ink-soft transition-colors hover:border-ink hover:text-ink"
               >
                 <Instagram size={16} aria-hidden="true" />
@@ -144,7 +149,7 @@ export default function Footer({ categories = [] }) {
                   className="flex items-start gap-2.5 text-sm text-ink-muted transition-colors hover:text-ink"
                 >
                   <Mail size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  support@touchfashion.in
+                  <span className="min-w-0 break-all">support@touchfashion.in</span>
                 </a>
               </li>
               <li className="flex items-start gap-2.5 text-sm text-ink-muted">
@@ -158,13 +163,13 @@ export default function Footer({ categories = [] }) {
 
       {/* ── Legal ── */}
       <div className="border-t border-line">
-        <div className="shell flex flex-col items-center justify-between gap-3 py-6 sm:flex-row">
+        <div className="shell flex flex-col items-center justify-between gap-2 py-5 text-center sm:flex-row sm:py-6 sm:text-left">
           <p className="text-xs text-ink-faint">© {year} TOUCH. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link to="/privacy" className="text-xs text-ink-faint transition-colors hover:text-ink">
+          <div className="flex items-center gap-5">
+            <Link to="/privacy" className="py-1 text-xs text-ink-faint transition-colors hover:text-ink">
               Privacy
             </Link>
-            <Link to="/terms" className="text-xs text-ink-faint transition-colors hover:text-ink">
+            <Link to="/terms" className="py-1 text-xs text-ink-faint transition-colors hover:text-ink">
               Terms
             </Link>
           </div>

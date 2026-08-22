@@ -24,17 +24,35 @@ const read = (userId) => {
 export function WishlistProvider({ children }) {
   const { user } = useAuth();
   const userId = user?._id || null;
-  const [items, setItems] = useState(() => read(null));
+  /**
+   * The list and the user it belongs to are ONE piece of state — see the same
+   * note in CartContext. Kept apart, the save effect fires with the resolved
+   * `userId` but the still-empty initial list and wipes the stored wishlist on
+   * every page load. `owner: undefined` means "not loaded yet, do not write".
+   */
+  const [saved, setSaved] = useState(() => ({ owner: undefined, items: [] }));
+  const items = saved.items;
 
-  useEffect(() => setItems(read(userId)), [userId]);
+  const setItems = useCallback((next) => {
+    setSaved((prev) => ({
+      owner: prev.owner,
+      items: typeof next === 'function' ? next(prev.items) : next,
+    }));
+  }, []);
 
   useEffect(() => {
+    setSaved({ owner: userId, items: read(userId) });
+  }, [userId]);
+
+  useEffect(() => {
+    if (saved.owner === undefined) return;
+
     try {
-      localStorage.setItem(keyFor(userId), JSON.stringify(items));
+      localStorage.setItem(keyFor(saved.owner), JSON.stringify(saved.items));
     } catch {
       /* ignore */
     }
-  }, [items, userId]);
+  }, [saved]);
 
   const toggle = useCallback((product) => {
     setItems((prev) => {
@@ -56,17 +74,17 @@ export function WishlistProvider({ children }) {
         },
       ];
     });
-  }, []);
+  }, [setItems]);
 
   const remove = useCallback((productId) => {
     setItems((prev) => prev.filter((p) => p._id !== productId));
-  }, []);
+  }, [setItems]);
 
   const has = useCallback((productId) => items.some((p) => p._id === productId), [items]);
 
   const value = useMemo(
     () => ({ items, count: items.length, toggle, remove, has, clear: () => setItems([]) }),
-    [items, toggle, remove, has]
+    [items, toggle, remove, has, setItems]
   );
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>;

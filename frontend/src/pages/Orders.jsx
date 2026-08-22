@@ -25,7 +25,7 @@ export function OrderHistory() {
 
   return (
     <div className="shell py-10 sm:py-14">
-      <h1 className="mb-9 text-3xl sm:text-4xl">Your orders</h1>
+      <h1 className="mb-7 text-display-2 sm:mb-9">Your orders</h1>
 
       {error && <Alert tone="error">{error}</Alert>}
 
@@ -67,13 +67,13 @@ export function OrderHistory() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-end justify-between gap-4">
+                  <div className="mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
                     <div className="flex -space-x-2">
                       {order.items.slice(0, 4).map((item, i) => (
                         <div
                            
                           key={i}
-                          className="h-14 w-11 overflow-hidden border border-paper-raised bg-paper-sunken"
+                          className="h-14 w-11 shrink-0 overflow-hidden border border-paper-raised bg-paper-sunken"
                         >
                           {item.image && (
                             <img src={item.image} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -81,7 +81,7 @@ export function OrderHistory() {
                         </div>
                       ))}
                       {order.items.length > 4 && (
-                        <div className="flex h-14 w-11 items-center justify-center border border-paper-raised
+                        <div className="flex h-14 w-11 shrink-0 items-center justify-center border border-paper-raised
                                         bg-paper-sunken text-2xs text-ink-muted">
                           +{order.items.length - 4}
                         </div>
@@ -147,7 +147,7 @@ export function OrderDetail() {
     return (
       <div className="shell py-10">
         <Skeleton className="mb-6 h-8 w-56" />
-        <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Skeleton className="h-80 w-full" />
           <Skeleton className="h-56 w-full" />
         </div>
@@ -179,7 +179,7 @@ export function OrderDetail() {
 
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl">Order {order.orderNumber}</h1>
+          <h1 className="text-display-3">Order {order.orderNumber}</h1>
           <p className="mt-1.5 text-sm text-ink-muted">Placed {formatDateTime(order.createdAt)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -190,13 +190,14 @@ export function OrderDetail() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem] lg:gap-12">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
         <div className="space-y-6">
           {/* ── Timeline ── */}
           {!isCancelled && !isRefunded && (
             <div className="card-pad">
               <h2 className="mb-6 text-sm font-medium">Progress</h2>
-              <ol className="relative flex justify-between">
+              <div className="no-scrollbar -mx-1 overflow-x-auto px-1 pb-1">
+              <ol className="relative flex min-w-[21rem] justify-between">
                 <span className="absolute left-0 right-0 top-3 h-px bg-line" aria-hidden="true" />
                 <span
                   className="absolute left-0 top-3 h-px bg-ink transition-all duration-500"
@@ -206,7 +207,7 @@ export function OrderDetail() {
                 {TIMELINE.map((s, i) => {
                   const reached = i <= currentStep;
                   return (
-                    <li key={s} className="relative z-10 flex flex-col items-center gap-2">
+                    <li key={s} className="relative z-10 flex w-[4.25rem] flex-col items-center gap-2">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
                           reached ? 'border-ink bg-ink text-paper' : 'border-line bg-paper-raised'
@@ -214,7 +215,7 @@ export function OrderDetail() {
                       >
                         {reached && <CheckCircle2 size={12} aria-hidden="true" />}
                       </span>
-                      <span className={`text-2xs uppercase tracking-wider2 ${
+                      <span className={`text-center text-2xs uppercase leading-tight tracking-wider2 ${
                         reached ? 'text-ink' : 'text-ink-faint'
                       }`}>
                         {ORDER_STATUS_LABEL[s]}
@@ -223,6 +224,7 @@ export function OrderDetail() {
                   );
                 })}
               </ol>
+              </div>
               {order.trackingNumber && (
                 <p className="mt-6 border-t border-line pt-4 text-sm text-ink-muted">
                   Tracking reference: <span className="font-medium text-ink">{order.trackingNumber}</span>
@@ -312,7 +314,7 @@ export function OrderDetail() {
 
         {/* ── Summary ── */}
         <div>
-          <div className="card-pad lg:sticky lg:top-24">
+          <div className="card-pad lg:sticky lg:top-32">
             <h2 className="mb-5 text-sm font-medium">Summary</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
@@ -392,7 +394,7 @@ export function OrderConfirmed() {
           <CheckCircle2 size={30} className="text-success" aria-hidden="true" />
         </div>
 
-        <h1 className="text-3xl sm:text-4xl">Thank you</h1>
+        <h1 className="text-display-2">Thank you</h1>
         <p className="mt-4 text-sm leading-relaxed text-ink-muted">
           {loading
             ? 'Confirming your order…'

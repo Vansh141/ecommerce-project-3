@@ -30,7 +30,29 @@ export function CartProvider({ children }) {
   const { user } = useAuth();
   const userId = user?._id || null;
 
-  const [items, setItems] = useState(() => readCart(null));
+  /**
+   * The bag and the user it belongs to are ONE piece of state.
+   *
+   * They used to be separate (`items` state + `userId` derived from auth), and
+   * that raced on every page load: the save effect ran with the freshly
+   * resolved `userId` but the still-empty initial `items`, writing `[]` over
+   * the signed-in shopper's stored bag before the load effect's value had
+   * committed. The bag was silently emptied on every reload.
+   *
+   * Keeping them together makes that unrepresentable — `owner` and `items`
+   * change in the same update, so a bag can never be written under the wrong
+   * key, and `owner: undefined` marks "not hydrated yet, do not write".
+   */
+  const [bag, setBag] = useState(() => ({ owner: undefined, items: [] }));
+  const items = bag.items;
+
+  const setItems = useCallback((next) => {
+    setBag((prev) => ({
+      owner: prev.owner,
+      items: typeof next === 'function' ? next(prev.items) : next,
+    }));
+  }, []);
+
   const [pricing, setPricing] = useState(null);
   const [coupon, setCoupon] = useState(null);
   const [couponCode, setCouponCode] = useState('');
@@ -39,18 +61,22 @@ export function CartProvider({ children }) {
 
   const requestSeq = useRef(0);
 
-  // Reload the correct bag when the signed-in user changes.
+  // Load the correct bag on mount and whenever the signed-in user changes.
   useEffect(() => {
-    setItems(readCart(userId));
+    setBag({ owner: userId, items: readCart(userId) });
   }, [userId]);
 
   useEffect(() => {
+    // Nothing has been loaded yet, so there is nothing worth saving — and
+    // writing here would destroy whatever is already stored.
+    if (bag.owner === undefined) return;
+
     try {
-      localStorage.setItem(keyFor(userId), JSON.stringify(items));
+      localStorage.setItem(keyFor(bag.owner), JSON.stringify(bag.items));
     } catch {
       /* ignore quota/private-mode failures */
     }
-  }, [items, userId]);
+  }, [bag]);
 
   /**
    * Re-prices the bag on the server whenever it changes.
@@ -117,7 +143,7 @@ export function CartProvider({ children }) {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [items, couponCode]);
+  }, [items, couponCode, setItems]);
 
   const addItem = useCallback((product, variant, qty = 1) => {
     setItems((prev) => {
@@ -148,7 +174,7 @@ export function CartProvider({ children }) {
         },
       ];
     });
-  }, []);
+  }, [setItems]);
 
   const updateQty = useCallback((productId, variantId, qty) => {
     const next = Number(qty);
@@ -161,20 +187,20 @@ export function CartProvider({ children }) {
           : i
       )
     );
-  }, []);
+  }, [setItems]);
 
   const removeItem = useCallback((productId, variantId) => {
     setItems((prev) =>
       prev.filter((i) => lineKey(i.product, i.variantId) !== lineKey(productId, variantId))
     );
-  }, []);
+  }, [setItems]);
 
   const clearCart = useCallback(() => {
     setItems([]);
     setCouponCode('');
     setCoupon(null);
     setPricing(null);
-  }, []);
+  }, [setItems]);
 
   const applyCoupon = useCallback((code) => setCouponCode(String(code || '').trim().toUpperCase()), []);
   const removeCoupon = useCallback(() => { setCouponCode(''); setCoupon(null); }, []);

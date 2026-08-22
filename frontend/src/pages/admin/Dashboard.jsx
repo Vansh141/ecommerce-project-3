@@ -46,7 +46,14 @@ function SalesChart({ data = [] }) {
 
   return (
     <div>
-      <div className="flex h-40 items-end gap-1" role="img" aria-label="Revenue over the last 30 days">
+      {/* `overflow-x-clip` rather than `hidden`: the hover tooltip on the
+          first and last bar would otherwise extend past the card and widen
+          the page, but it must still be free to rise above the bars. */}
+      <div
+        className="flex h-40 items-end gap-1 overflow-x-clip"
+        role="img"
+        aria-label="Revenue over the last 30 days"
+      >
         {data.map((d) => (
           <div key={d.date} className="group relative flex-1">
             <div
@@ -92,7 +99,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl">Dashboard</h1>
+        <h1 className="text-display-3">Dashboard</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Revenue counts paid orders only — unpaid and cancelled orders are excluded.
         </p>
