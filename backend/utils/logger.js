@@ -12,11 +12,23 @@ const activeLevel = LEVELS[config.logLevel] ?? LEVELS.info;
 
 const SENSITIVE_KEY = /(pass(word)?|secret|token|authorization|cookie|apikey|api_key|signature|otp|cvv|card)/i;
 
+/**
+ * Single-use credentials that travel inside URLs. Request paths are logged for
+ * every failed request, so without this a reset attempt rejected for a weak
+ * password — while its emailed token is still valid — would write a working
+ * reset link into the log sink. The global flag replaces every occurrence, not
+ * only the first.
+ */
+const TOKEN_IN_PATH = /(\/(?:reset-password|verify-email|unsubscribe)\/)[^/?#\s"'<>]+/gi;
+
+const scrub = (text) => text.replace(TOKEN_IN_PATH, '$1[REDACTED]');
+
 function redact(value, depth = 0) {
+  if (typeof value === 'string') return scrub(value);
   if (depth > 4 || value === null || value === undefined) return value;
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1));
   if (typeof value !== 'object') return value;
-  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (value instanceof Error) return { name: value.name, message: scrub(String(value.message)) };
 
   const out = {};
   for (const [key, val] of Object.entries(value)) {
@@ -31,13 +43,13 @@ function emit(level, message, meta) {
   const entry = {
     ts: new Date().toISOString(),
     level,
-    msg: message,
+    msg: typeof message === 'string' ? scrub(message) : message,
     ...(meta !== undefined ? { meta: redact(meta) } : {}),
   };
 
   const line = config.isProduction
     ? JSON.stringify(entry)
-    : `${entry.ts} ${level.toUpperCase().padEnd(5)} ${message}${meta !== undefined ? ` ${JSON.stringify(entry.meta)}` : ''}`;
+    : `${entry.ts} ${level.toUpperCase().padEnd(5)} ${entry.msg}${meta !== undefined ? ` ${JSON.stringify(entry.meta)}` : ''}`;
 
   if (level === 'error') process.stderr.write(`${line}\n`);
   else process.stdout.write(`${line}\n`);

@@ -180,6 +180,8 @@ describe('Account closure', () => {
 
     const wrong = await asUser(token).delete('/api/users/account').send({ password: 'Nope12345' });
     expect(wrong.status).toBe(401);
+    // A distinct code, so the client does not mistake it for an expired session.
+    expect(wrong.body.error.code).toBe('PASSWORD_INVALID');
 
     const res = await asUser(token).delete('/api/users/account').send({ password: TEST_PASSWORD });
     expect(res.status).toBe(200);

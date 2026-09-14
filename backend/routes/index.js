@@ -28,14 +28,14 @@ auth.post('/login', limiters.authLimiter, v.loginRules, validate, authController
 
 // Cookie-authenticated endpoints require the custom header, which forces a CORS
 // preflight that only allowlisted origins can pass — our CSRF defence.
-auth.post('/refresh', requireCsrfHeader, authController.refresh);
+auth.post('/refresh', requireCsrfHeader, limiters.refreshLimiter, authController.refresh);
 auth.post('/logout', requireCsrfHeader, authController.logout);
 auth.post('/logout-all', requireCsrfHeader, protect, authController.logoutAll);
 
 auth.post('/forgot-password', limiters.passwordResetLimiter, v.forgotPasswordRules, validate, authController.forgotPassword);
-auth.post('/reset-password/:token', limiters.passwordResetLimiter, v.resetPasswordRules, validate, authController.resetPassword);
-auth.post('/verify-email/:token', limiters.authLimiter, authController.verifyEmail);
-auth.post('/resend-verification', limiters.passwordResetLimiter, protect, authController.resendVerification);
+auth.post('/reset-password/:token', limiters.passwordResetConfirmLimiter, v.resetPasswordRules, validate, authController.resetPassword);
+auth.post('/verify-email/:token', limiters.authLimiter, v.verifyEmailRules, validate, authController.verifyEmail);
+auth.post('/resend-verification', limiters.verificationEmailLimiter, protect, authController.resendVerification);
 auth.get('/me', protect, authController.me);
 
 router.use('/auth', auth);
@@ -46,8 +46,9 @@ users.use(protect); // every route below requires a signed-in user
 
 users.get('/profile', userController.getProfile);
 users.put('/profile', v.updateProfileRules, validate, userController.updateProfile);
-users.put('/password', v.changePasswordRules, validate, userController.changePassword);
-users.delete('/account', v.deleteAccountRules, validate, userController.deleteAccount);
+// Both re-check the current password, so both share the per-account limiter.
+users.put('/password', limiters.accountSecurityLimiter, v.changePasswordRules, validate, userController.changePassword);
+users.delete('/account', limiters.accountSecurityLimiter, v.deleteAccountRules, validate, userController.deleteAccount);
 
 users.get('/addresses', userController.listAddresses);
 users.post('/addresses', v.addressRules, validate, userController.addAddress);
@@ -110,8 +111,9 @@ const orders = express.Router();
 
 // Pricing a basket is a public operation — a guest must be able to see their
 // bag total before being asked to sign in. `optionalAuth` still identifies a
-// signed-in shopper so per-user coupon limits can be applied.
-orders.post('/preview', optionalAuth, v.previewOrderRules, validate, orderController.previewOrder);
+// signed-in shopper so per-user coupon limits can be applied. It carries its
+// own limit, plus a coupon limit so it cannot be used to guess codes.
+orders.post('/preview', optionalAuth, limiters.previewLimiter, limiters.previewCouponLimiter, v.previewOrderRules, validate, orderController.previewOrder);
 orders.post('/', protect, limiters.orderLimiter, v.createOrderRules, validate, orderController.createOrder);
 orders.get('/mine', protect, orderController.listMyOrders);
 

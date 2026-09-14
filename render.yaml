@@ -32,6 +32,13 @@ services:
         value: "1"
 
       # Cross-site cookie: the storefront and API are on different hosts.
+      #
+      # On two *.onrender.com hostnames the refresh cookie is a THIRD-PARTY
+      # cookie. Safari blocks those and Chrome is phasing them out, so for those
+      # shoppers sign-in works but the next reload signs them out. Before launch,
+      # serve both under one registrable domain (e.g. touch.example.com and
+      # api.touch.example.com), then set COOKIE_SAMESITE=lax and
+      # COOKIE_DOMAIN=.touch.example.com in the dashboard.
       - key: COOKIE_SAMESITE
         value: none
 

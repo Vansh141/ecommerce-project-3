@@ -84,7 +84,7 @@ const deleteAccount = asyncHandler(async (req, res) => {
   }
 
   const matches = await user.matchPassword(req.body.password);
-  if (!matches) throw ApiError.unauthorized('Password is incorrect.');
+  if (!matches) throw ApiError.unauthorized('Password is incorrect.', { code: 'PASSWORD_INVALID' });
 
   user.isActive = false;
   user.tokenVersion = (user.tokenVersion ?? 0) + 1;

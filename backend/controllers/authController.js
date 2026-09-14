@@ -251,11 +251,21 @@ const resendVerification = asyncHandler(async (req, res) => {
   const rawToken = user.createEmailVerificationToken();
   await user.save({ validateBeforeSave: false });
 
-  await emailService.sendWelcome({
+  const delivered = await emailService.sendWelcome({
     to: user.email,
     name: user.name,
     verifyUrl: `${config.clientUrl}/verify-email/${rawToken}`,
   });
+
+  // This endpoint only ever concerns the signed-in caller's own account, so
+  // admitting the email did not go out reveals nothing about anyone else — and
+  // claiming it was sent when it was not leaves them waiting for nothing.
+  if (!delivered) {
+    throw ApiError.serviceUnavailable(
+      'We could not send the verification email right now. Please try again shortly.',
+      { code: 'EMAIL_UNAVAILABLE' }
+    );
+  }
 
   return sendSuccess(res, { message: 'Verification email sent.' });
 });

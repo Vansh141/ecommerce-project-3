@@ -165,6 +165,7 @@ async function previewCart({ items, couponCode = null, userId = null }) {
   let discountTotal = 0;
   let appliedCoupon = null;
   let couponError = null;
+  let couponErrorCode = null;
 
   if (couponCode) {
     try {
@@ -184,7 +185,15 @@ async function previewCart({ items, couponCode = null, userId = null }) {
       };
     } catch (err) {
       // A stale coupon must not block viewing the bag — surface it as a notice.
-      couponError = err.message;
+      // Only messages we raised deliberately are shown; anything unexpected (a
+      // database failure) is logged and replaced, never echoed to the shopper.
+      if (err.isOperational) {
+        couponError = err.message;
+        couponErrorCode = err.code || null;
+      } else {
+        logger.error('Coupon check failed during cart preview', { message: err.message });
+        couponError = 'We could not check that coupon right now. Please try again.';
+      }
     }
   }
 
@@ -199,6 +208,8 @@ async function previewCart({ items, couponCode = null, userId = null }) {
     })),
     coupon: appliedCoupon,
     couponError,
+    // Read by the preview controller's rate limiter; never sent to the client.
+    couponErrorCode,
     pricing: totals,
   };
 }

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useCallback } from 'react';
+import { forwardRef, useEffect, useId, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, X, AlertCircle, Inbox, ChevronRight } from 'lucide-react';
 
@@ -56,14 +56,20 @@ export const Button = forwardRef(function Button(
 
 /* ══════════════════════════════ Inputs ═══════════════════════════════════ */
 
-let fieldSeq = 0;
+/**
+ * Field ids come from `useId`, not a module counter incremented during render.
+ * The counter handed every field a new id on each re-render, which rewrote
+ * `id`, `htmlFor` and `aria-describedby` on every keystroke and briefly
+ * detached labels from their inputs. `useId` is stable for the component's
+ * lifetime and unique across the tree.
+ */
 
 export const Input = forwardRef(function Input(
   { label, error, hint, id, className = '', required, ...rest },
   ref
 ) {
-  fieldSeq += 1;
-  const inputId = id || `field-${fieldSeq}`;
+  const generatedId = useId();
+  const inputId = id || `field-${generatedId}`;
   const errorId = `${inputId}-error`;
   const hintId = `${inputId}-hint`;
 
@@ -99,8 +105,8 @@ export const Textarea = forwardRef(function Textarea(
   { label, error, hint, id, className = '', required, rows = 4, ...rest },
   ref
 ) {
-  fieldSeq += 1;
-  const inputId = id || `ta-${fieldSeq}`;
+  const generatedId = useId();
+  const inputId = id || `ta-${generatedId}`;
   const errorId = `${inputId}-error`;
 
   return (
@@ -136,8 +142,8 @@ export const Select = forwardRef(function Select(
   { label, error, id, className = '', children, required, ...rest },
   ref
 ) {
-  fieldSeq += 1;
-  const inputId = id || `sel-${fieldSeq}`;
+  const generatedId = useId();
+  const inputId = id || `sel-${generatedId}`;
 
   return (
     <div className={className}>
@@ -163,8 +169,8 @@ export const Select = forwardRef(function Select(
 });
 
 export const Checkbox = forwardRef(function Checkbox({ label, id, className = '', ...rest }, ref) {
-  fieldSeq += 1;
-  const inputId = id || `cb-${fieldSeq}`;
+  const generatedId = useId();
+  const inputId = id || `cb-${generatedId}`;
 
   return (
     <label htmlFor={inputId} className={`flex cursor-pointer items-start gap-2.5 ${className}`}>

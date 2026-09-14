@@ -18,6 +18,7 @@ Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
 Disallow: /reset-password/
+Disallow: /verify-email/
 
-# Replace with your production domain before going live.
-Sitemap: https://www.example.com/sitemap.xml
+# Production storefront: https://touchh.in
+Sitemap: https://touchh.in/sitemap.xml

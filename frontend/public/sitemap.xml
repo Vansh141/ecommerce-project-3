@@ -7,41 +7,41 @@
   reach product pages by crawling /shop. If the catalogue grows, generate this
   file from the database at build time rather than maintaining it by hand.
 
-  Replace https://www.example.com with your production domain.
+  Canonical origin: https://touchh.in
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.example.com/</loc>
+    <loc>https://touchh.in/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.example.com/shop</loc>
+    <loc>https://touchh.in/shop</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.example.com/about</loc>
+    <loc>https://touchh.in/about</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.example.com/contact</loc>
+    <loc>https://touchh.in/contact</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://www.example.com/shipping-returns</loc>
+    <loc>https://touchh.in/shipping-returns</loc>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://www.example.com/privacy</loc>
+    <loc>https://touchh.in/privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://www.example.com/terms</loc>
+    <loc>https://touchh.in/terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

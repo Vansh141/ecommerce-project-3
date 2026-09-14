@@ -38,6 +38,7 @@ const Login = pick(() => import('./pages/Auth'), 'Login');
 const Register = pick(() => import('./pages/Auth'), 'Register');
 const ForgotPassword = pick(() => import('./pages/Auth'), 'ForgotPassword');
 const ResetPassword = pick(() => import('./pages/Auth'), 'ResetPassword');
+const VerifyEmail = pick(() => import('./pages/Auth'), 'VerifyEmail');
 
 const About = pick(() => import('./pages/Static'), 'About');
 const Contact = pick(() => import('./pages/Static'), 'Contact');
@@ -78,6 +79,9 @@ export default function App() {
                       <Route path="register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
                       <Route path="forgot-password" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
                       <Route path="reset-password/:token" element={<ResetPassword />} />
+                      {/* The link in the welcome email. Open to everyone: a signed-in
+                          shopper verifies here too. */}
+                      <Route path="verify-email/:token" element={<VerifyEmail />} />
 
                       {/* Customer-only */}
                       <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />

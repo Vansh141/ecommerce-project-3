@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authApi, userApi } from '../api/endpoints';
-import { setAccessToken, setSessionExpiredHandler, refreshAccessToken } from '../api/client';
+import {
+  setAccessToken, setSessionExpiredHandler, refreshAccessToken, isSessionDefinitivelyOver,
+} from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -14,7 +16,8 @@ export const useAuth = () => {
  * Only non-sensitive profile fields are cached, purely so the header can render
  * the right state on first paint without a flash. The cache is never trusted
  * for authorisation — the server re-derives identity from the token on every
- * request, and the cache is discarded the moment a refresh fails.
+ * request, and the cache is discarded as soon as the server says the session
+ * is over.
  */
 const CACHE_KEY = 'touch.user';
 
@@ -24,22 +27,6 @@ const readCache = () => {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
-  }
-};
-
-/**
- * Whether this browser has ever had a session.
- *
- * The refresh cookie is httpOnly, so JavaScript cannot check for it directly.
- * Without this hint every anonymous visitor would fire a guaranteed-401
- * refresh request on page load — a wasted round trip on the slowest moment of
- * the visit, plus a console error on a perfectly healthy page.
- */
-const hasSessionHint = () => {
-  try {
-    return localStorage.getItem(CACHE_KEY) !== null;
-  } catch {
-    return false;
   }
 };
 
@@ -62,23 +49,29 @@ export function AuthProvider({ children }) {
     persist(null);
   }, [persist]);
 
-  // On boot, trade the httpOnly refresh cookie for an access token. This is
-  // what makes a reload keep you signed in without storing a token on disk.
+  /**
+   * On boot, trade the httpOnly refresh cookie for an access token. This is
+   * what makes a reload keep you signed in without storing a token on disk.
+   *
+   * It runs for every visitor. It used to be skipped when `touch.user` was not
+   * cached, but the refresh cookie is httpOnly and outlives that cache: Safari
+   * can clear script-written storage after a week without a visit, and storage
+   * can be cleared while cookies are kept. Those shoppers held a valid 30-day
+   * session the app never tried to use. An anonymous visitor's check carries no
+   * cookie and is answered 401 without any token or database work.
+   */
   useEffect(() => {
     let cancelled = false;
-
-    // Skip entirely for visitors who have never signed in on this browser.
-    if (!hasSessionHint()) {
-      setInitialising(false);
-      return undefined;
-    }
 
     (async () => {
       try {
         const { user: freshUser } = await refreshAccessToken();
         if (!cancelled && freshUser) persist(freshUser);
-      } catch {
-        if (!cancelled) clearSession();
+      } catch (error) {
+        // Only a definitive answer ends the session. A timeout, a dropped
+        // connection or a host still waking up leaves the cookie valid, so the
+        // cached profile stays and the next authenticated request retries.
+        if (!cancelled && isSessionDefinitivelyOver(error)) clearSession();
       } finally {
         if (!cancelled) setInitialising(false);
       }

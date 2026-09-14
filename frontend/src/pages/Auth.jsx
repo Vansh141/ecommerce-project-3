@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/endpoints';
 import { useDocumentMeta } from '../hooks';
-import { Button, Input, Alert } from '../components/ui';
+import { Button, Input, Alert, Spinner } from '../components/ui';
 
 /** Only same-site relative paths are honoured, blocking open-redirect abuse. */
 function safeRedirect(value) {
@@ -209,26 +209,50 @@ export function Register() {
 
 /* ═════════════════════════ Forgot password ═══════════════════════════════ */
 
+/** Catches an obvious typo before a request is spent on it. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useDocumentMeta({ title: 'Reset your password', noIndex: true });
 
+  /**
+   * "Check your inbox" is shown only after the server accepted the request.
+   *
+   * This used to set `sent` from the catch block too, reasoning that the
+   * endpoint answers identically whether or not an account exists. That holds
+   * for the server's REPLY and says nothing about a request that failed: a 429
+   * from the hourly limiter, a network error or a timeout sends no email, and
+   * telling the shopper one is on its way leaves them waiting for nothing. The
+   * privacy property is unchanged, because it lives in that identical reply.
+   */
   const submit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+    setError(null);
+
+    const address = email.trim();
+    if (!EMAIL_PATTERN.test(address)) {
+      setError('Enter the email address you registered with.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await authApi.forgotPassword(email);
-      setMessage(data.message);
+      const data = await authApi.forgotPassword(address);
+      setMessage(
+        data?.message ||
+          'If an account exists for that email address, a password reset link has been sent.'
+      );
       setSent(true);
     } catch (err) {
-      // The endpoint answers identically whether or not the account exists, so
-      // there is nothing here that could reveal which emails are registered.
-      setMessage(err.friendlyMessage || 'Please try again.');
-      setSent(true);
+      // Stay on the form, with the address still filled in, so they can retry.
+      setError(err.friendlyMessage || 'Could not send the reset link. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -255,7 +279,9 @@ export function ForgotPassword() {
       subtitle="We will email you a link to set a new one."
       footer={<Link to="/login" className="link">Back to sign in</Link>}
     >
-      <form onSubmit={submit} className="space-y-5">
+      <form onSubmit={submit} className="space-y-5" noValidate>
+        {error && <Alert tone="error">{error}</Alert>}
+
         <Input
           label="Email" type="email" required autoComplete="email"
           value={email} onChange={(e) => setEmail(e.target.value)}
@@ -334,6 +360,137 @@ export function ResetPassword() {
 
         <Button type="submit" size="lg" fullWidth loading={loading}>Update password</Button>
       </form>
+    </AuthShell>
+  );
+}
+
+/* ═════════════════════════ Verify email ══════════════════════════════════ */
+
+/**
+ * One request per token, however many times the page mounts.
+ *
+ * A verification link is single-use: the first request consumes the token and
+ * any repeat is answered "invalid or expired". StrictMode runs effects twice in
+ * development and a remount does the same in production, so the request is
+ * shared per token — otherwise a second, failing answer could overwrite the
+ * first, successful one.
+ */
+const verificationRequests = new Map();
+
+function verifyOnce(token) {
+  if (!verificationRequests.has(token)) {
+    verificationRequests.set(token, authApi.verifyEmail(token));
+  }
+  return verificationRequests.get(token);
+}
+
+/** The page the welcome email's "Verify email" link opens. */
+export function VerifyEmail() {
+  const { token } = useParams();
+  const location = useLocation();
+  const { user, isAuthenticated, setUser } = useAuth();
+
+  const [status, setStatus] = useState('verifying'); // verifying | verified | failed
+  const [error, setError] = useState(null);
+  const [resend, setResend] = useState({ state: 'idle', message: null }); // idle | sending | sent | failed
+
+  // Read inside the effect without making the signed-in user one of its deps.
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  useDocumentMeta({ title: 'Verify your email', noIndex: true });
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus('verifying');
+    setError(null);
+
+    verifyOnce(token)
+      .then((data) => {
+        if (cancelled) return;
+        // Keep the signed-in profile in step when the link belongs to them.
+        if (data?.user && userRef.current?._id === data.user._id) setUser(data.user);
+        setStatus('verified');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err.friendlyMessage || 'This verification link is invalid or has expired.');
+        setStatus('failed');
+      });
+
+    return () => { cancelled = true; };
+  }, [token, setUser]);
+
+  const requestNewLink = async () => {
+    setResend({ state: 'sending', message: null });
+    try {
+      const data = await authApi.resendVerification();
+      setResend({ state: 'sent', message: data?.message || 'A new verification link is on its way.' });
+    } catch (err) {
+      setResend({
+        state: 'failed',
+        message: err.friendlyMessage || 'Could not send a new link. Please try again.',
+      });
+    }
+  };
+
+  if (status === 'verifying') {
+    return (
+      <AuthShell title="Verifying your email">
+        <div className="flex justify-center py-6">
+          <Spinner label="Verifying your email" />
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (status === 'verified') {
+    return (
+      <AuthShell title="Email verified">
+        <div className="text-center">
+          <CheckCircle2 size={30} className="mx-auto mb-5 text-success" aria-hidden="true" />
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Thank you — your email address is confirmed.
+          </p>
+          {isAuthenticated ? (
+            <Button to="/shop" fullWidth className="mt-7">Continue shopping</Button>
+          ) : (
+            <Button to="/login" fullWidth className="mt-7">Sign in</Button>
+          )}
+        </div>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title="We could not verify your email"
+      footer={<Link to="/" className="link">Back to the shop</Link>}
+    >
+      <div className="space-y-5">
+        <Alert tone="error">{error}</Alert>
+
+        {isAuthenticated ? (
+          <>
+            {resend.state === 'sent' && <Alert tone="success">{resend.message}</Alert>}
+            {resend.state === 'failed' && <Alert tone="error">{resend.message}</Alert>}
+            {resend.state !== 'sent' && (
+              <Button size="lg" fullWidth loading={resend.state === 'sending'} onClick={requestNewLink}>
+                <Mail size={15} aria-hidden="true" /> Send a new link
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed text-ink-muted">
+              Sign in and we will send you a fresh verification link.
+            </p>
+            <Button to={`/login?redirect=${encodeURIComponent(location.pathname)}`} size="lg" fullWidth>
+              Sign in <ArrowRight size={15} aria-hidden="true" />
+            </Button>
+          </>
+        )}
+      </div>
     </AuthShell>
   );
 }

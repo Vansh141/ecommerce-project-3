@@ -30,12 +30,21 @@ async function loadOwnedOrder(orderId, user) {
  * Prices a basket without creating anything, using the exact same code path as
  * order creation — so the cart total and the charged total cannot diverge.
  */
+/**
+ * Coupon outcomes that only ever mean "there is no usable code by that name".
+ * `previewCouponLimiter` counts these so the preview cannot be used to guess
+ * codes. The states a genuine shopper passes through while editing a bag —
+ * minimum order not yet met, already used, no effect — are deliberately absent.
+ */
+const COUPON_PROBE_CODES = new Set(['COUPON_INVALID', 'COUPON_EXPIRED', 'COUPON_EXHAUSTED']);
+
 const previewOrder = asyncHandler(async (req, res) => {
-  const preview = await orderService.previewCart({
+  const { couponErrorCode, ...preview } = await orderService.previewCart({
     items: req.body.items,
     couponCode: req.body.couponCode || null,
     userId: req.user?._id || null,
   });
+  res.locals.couponRejected = COUPON_PROBE_CODES.has(couponErrorCode);
   return sendSuccess(res, preview);
 });
 

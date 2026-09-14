@@ -84,6 +84,11 @@ const resetPasswordRules = [
   passwordRule(),
 ];
 
+/** Same shape as a reset token: 32 random bytes, hex encoded. */
+const verifyEmailRules = [
+  param('token').isString().bail().isLength({ min: 32, max: 128 }).withMessage('Invalid verification link.'),
+];
+
 const changePasswordRules = [
   body('currentPassword').isString().withMessage('Current password is required.').bail().notEmpty()
     .withMessage('Current password is required.'),
@@ -95,6 +100,7 @@ module.exports = {
   loginRules,
   forgotPasswordRules,
   resetPasswordRules,
+  verifyEmailRules,
   changePasswordRules,
   passwordRule,
   emailRule,

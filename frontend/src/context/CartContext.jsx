@@ -26,6 +26,9 @@ const readCart = (userId) => {
  *  is two lines. */
 const lineKey = (productId, variantId) => `${productId}::${variantId}`;
 
+/** Line fields the server is the source of truth for, refreshed on each re-price. */
+const RECONCILED_FIELDS = ['name', 'image', 'price', 'mrp', 'slug', 'size', 'availableStock'];
+
 export function CartProvider({ children }) {
   const { user } = useAuth();
   const userId = user?._id || null;
@@ -47,10 +50,11 @@ export function CartProvider({ children }) {
   const items = bag.items;
 
   const setItems = useCallback((next) => {
-    setBag((prev) => ({
-      owner: prev.owner,
-      items: typeof next === 'function' ? next(prev.items) : next,
-    }));
+    setBag((prev) => {
+      const nextItems = typeof next === 'function' ? next(prev.items) : next;
+      // Handing back the same object lets React skip the update entirely.
+      return nextItems === prev.items ? prev : { owner: prev.owner, items: nextItems };
+    });
   }, []);
 
   const [pricing, setPricing] = useState(null);
@@ -60,6 +64,31 @@ export function CartProvider({ children }) {
   const [pricingError, setPricingError] = useState(null);
 
   const requestSeq = useRef(0);
+
+  /**
+   * What the server prices on: who is asking, and which variants in what
+   * quantities.
+   *
+   * The re-pricing effect keys off this rather than off `items`. Its own success
+   * handler folds the server's names, prices and stock back into the bag, which
+   * used to produce a new array every time — so an effect depending on `items`
+   * re-triggered itself after each response, sending a preview request roughly
+   * every 250 ms for as long as the bag held anything. Reconciliation never
+   * changes these inputs, so that loop cannot form. The owner is included
+   * because coupon eligibility is decided per shopper.
+   */
+  const pricingSignature = useMemo(
+    () =>
+      JSON.stringify({
+        owner: bag.owner ?? null,
+        lines: items.map((i) => [i.product, i.variantId, i.qty]),
+      }),
+    [bag.owner, items]
+  );
+
+  /** Lets the effect read the current bag without depending on its identity. */
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   // Load the correct bag on mount and whenever the signed-in user changes.
   useEffect(() => {
@@ -79,7 +108,7 @@ export function CartProvider({ children }) {
   }, [bag]);
 
   /**
-   * Re-prices the bag on the server whenever it changes.
+   * Re-prices the bag on the server whenever what it is priced on changes.
    *
    * The client stores only ids, sizes and quantities — never money. Every
    * figure shown in the bag comes back from the same endpoint the order is
@@ -87,22 +116,27 @@ export function CartProvider({ children }) {
    * never disagree.
    */
   useEffect(() => {
-    if (items.length === 0) {
+    const current = itemsRef.current;
+
+    // Claimed before anything else, so a response still in flight for the
+    // previous bag — including one that has since been emptied — is ignored.
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
+
+    if (current.length === 0) {
       setPricing(null);
       setCoupon(null);
       setPricingError(null);
+      setPricingLoading(false);
       return undefined;
     }
-
-    const seq = requestSeq.current + 1;
-    requestSeq.current = seq;
 
     // Debounced so rapid quantity clicks issue one request, not five.
     const timer = setTimeout(async () => {
       setPricingLoading(true);
       try {
         const payload = {
-          items: items.map((i) => ({ product: i.product, variantId: i.variantId, qty: i.qty })),
+          items: current.map((i) => ({ product: i.product, variantId: i.variantId, qty: i.qty })),
           couponCode: couponCode || null,
         };
         const result = await orderApi.preview(payload);
@@ -113,26 +147,27 @@ export function CartProvider({ children }) {
         setPricingError(result.couponError || null);
 
         // Reconcile with server truth: names, prices and live stock may have
-        // changed since the item was added.
-        setItems((prev) =>
-          prev.map((local) => {
+        // changed since the item was added. Lines the server told us nothing
+        // new about keep their identity, and an unchanged bag is not replaced.
+        setItems((prev) => {
+          let changed = false;
+
+          const next = prev.map((local) => {
             const fresh = result.items.find(
               (s) => lineKey(s.product, s.variantId) === lineKey(local.product, local.variantId)
             );
-            return fresh
-              ? {
-                  ...local,
-                  name: fresh.name,
-                  image: fresh.image,
-                  price: fresh.price,
-                  mrp: fresh.mrp,
-                  slug: fresh.slug,
-                  size: fresh.size,
-                  availableStock: fresh.availableStock,
-                }
-              : local;
-          })
-        );
+            if (!fresh || RECONCILED_FIELDS.every((field) => fresh[field] === local[field])) {
+              return local;
+            }
+
+            changed = true;
+            const merged = { ...local };
+            RECONCILED_FIELDS.forEach((field) => { merged[field] = fresh[field]; });
+            return merged;
+          });
+
+          return changed ? next : prev;
+        });
       } catch (err) {
         if (requestSeq.current !== seq) return;
         setPricing(null);
@@ -143,7 +178,7 @@ export function CartProvider({ children }) {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [items, couponCode, setItems]);
+  }, [pricingSignature, couponCode, setItems]);
 
   const addItem = useCallback((product, variant, qty = 1) => {
     setItems((prev) => {

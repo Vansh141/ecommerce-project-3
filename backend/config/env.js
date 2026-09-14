@@ -12,7 +12,12 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+// The test runner sets NODE_ENV=test before this module loads, and the suite is
+// built to run without a .env (see `secret()` below). Skipping the file there
+// keeps a developer's real email, payment and database settings out of tests.
+if (process.env.NODE_ENV !== 'test') {
+  dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+}
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';

@@ -35,8 +35,8 @@ Legend — **Req**: R = required (boot fails without it), O = optional (feature 
 | `JWT_ACCESS_SECRET` | Access-token signing. ≥32 chars, no placeholders | R | Dashboard (secret) |
 | `JWT_REFRESH_SECRET` | Refresh-token signing. Must differ from access secret | R | Dashboard (secret) |
 | `CLIENT_URL` | Storefront origin; CORS default + email links | R | Dashboard, e.g. `https://touch-store.onrender.com` |
-| `CORS_ORIGINS` | Extra allowed origins (comma-separated) | O | Dashboard, only for a custom domain |
-| `COOKIE_DOMAIN` | Cookie scope | O | Only with a shared parent domain |
+| `CORS_ORIGINS` | Allowed origins (comma-separated). When set it **replaces** the `CLIENT_URL` default instead of adding to it, so it must list every storefront origin, the live one included | O | Dashboard, only for a custom domain |
+| `COOKIE_DOMAIN` | Cookie scope. Set it once the store and API share a parent domain — see *Login persistence* below | O | Only with a shared parent domain |
 | `ACCESS_TOKEN_TTL` / `REFRESH_TOKEN_TTL` / `REFRESH_TOKEN_TTL_MS` / `JWT_ISSUER` | Token lifetimes | O | Defaults fine |
 | `RAZORPAY_KEY_ID` | Publishable key, sent to browser | O | Dashboard |
 | `RAZORPAY_KEY_SECRET` | Order creation + signature verification | O | Dashboard (secret) |
@@ -44,11 +44,14 @@ Legend — **Req**: R = required (boot fails without it), O = optional (feature 
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Persistent image storage | O (**effectively required in prod**) | Dashboard (secret) |
 | `CLOUDINARY_FOLDER` | Asset folder | O | default `touch/products` |
 | `API_PUBLIC_URL` | This API's own public origin. Only used when Cloudinary is **not** configured, to make locally stored image URLs absolute. Configure Cloudinary instead if you can | O | Dashboard, e.g. `https://touch-api.onrender.com` |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `MAIL_FROM_EMAIL` | Password reset + order email. All four of host/user/pass/from needed to enable | O | Dashboard (pass = secret) |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Password reset, verification and order email, sent over Resend's HTTPS API (Render blocks SMTP ports). Both needed to enable; the sender must be on a domain verified in Resend | O | Dashboard (API key = secret) |
+| `CONTACT_NOTIFY_EMAIL` | Where contact-form enquiries are delivered. Defaults to `RESEND_FROM_EMAIL` | O | Dashboard |
 | `MAIL_FROM_NAME` | Sender name | O | render.yaml = TOUCH |
 | `STORE_NAME`, `STORE_CURRENCY`, `FREE_SHIPPING_THRESHOLD`, `SHIPPING_FLAT_RATE`, `TAX_RATE`, `TAX_INCLUSIVE`, `COD_ENABLED`, `COD_MAX_ORDER_VALUE`, `MAX_QTY_PER_ITEM`, `ORDER_CANCEL_WINDOW_HOURS`, `LOW_STOCK_THRESHOLD` | Commerce config (not secrets) | O | render.yaml |
 | `LOG_LEVEL` | Logging | O | render.yaml = info |
 | `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used **only** by `npm run seed:admin`; remove after first run | O | Set temporarily, then delete |
+
+> **Login persistence.** Staying signed in across a reload relies on the httpOnly refresh cookie `touch_rt`. With the store and API on two different `*.onrender.com` hosts that cookie is third-party: Safari blocks it and Chrome is phasing such cookies out, so those shoppers are signed out on reload. Before launch, serve both under one registrable domain (for example `touch.example.com` and `api.touch.example.com`), then set `COOKIE_DOMAIN=.touch.example.com` and `COOKIE_SAMESITE=lax`.
 
 ### Frontend — `touch-store` (Render Static Site → Environment)
 
@@ -214,13 +217,12 @@ real order.
 These are deliberately left as placeholders in the repo. Nothing here is a bug;
 each one is a decision the business owner has to make.
 
-- [ ] `frontend/public/robots.txt` — replace `https://www.example.com/sitemap.xml`
-      with the real domain.
-- [ ] `frontend/public/sitemap.xml` — replace every `https://www.example.com` `<loc>`
-      with the real domain.
-- [ ] `frontend/index.html` — replace `https://www.example.com` in `og:image`,
-      `og:url` and `twitter:image`. These must be absolute URLs or link previews
-      on WhatsApp, Facebook and X show no image.
+- [x] **Production storefront domain is set to `https://touchh.in`** in
+      `frontend/index.html` (`og:image`, `og:url`, `twitter:image`),
+      `frontend/public/robots.txt` (`Sitemap:`) and every `<loc>` in
+      `frontend/public/sitemap.xml`. These must be absolute URLs or link previews
+      on WhatsApp, Facebook and X show no image. If the storefront domain ever
+      moves, these three files are the only frontend files that hardcode it.
 - [ ] `frontend/public/logo.jpg` — currently also used as the favicon and the
       social share image. Confirm it is the real logo and that it looks right
       cropped to a square.
