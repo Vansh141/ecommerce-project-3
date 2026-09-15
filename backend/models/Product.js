@@ -20,6 +20,21 @@ const variantSchema = new mongoose.Schema(
   { _id: true }
 );
 
+/**
+ * How a photo sits inside the store's image slots, set in the admin image
+ * editor. `x`/`y` are the focus point as percentages of the photo and `zoom`
+ * enlarges around it. The stored file is never altered; storefronts apply this
+ * at render time. Absent means the default centred, unzoomed framing.
+ */
+const framingSchema = new mongoose.Schema(
+  {
+    x: { type: Number, min: 0, max: 100, default: 50 },
+    y: { type: Number, min: 0, max: 100, default: 50 },
+    zoom: { type: Number, min: 1, max: 3, default: 1 },
+  },
+  { _id: false }
+);
+
 const imageSchema = new mongoose.Schema(
   {
     url: { type: String, required: true, trim: true },
@@ -27,6 +42,7 @@ const imageSchema = new mongoose.Schema(
     alt: { type: String, trim: true, maxlength: 160, default: '' },
     width: { type: Number, default: 0 },
     height: { type: Number, default: 0 },
+    framing: { type: framingSchema, default: undefined },
   },
   { _id: false }
 );
@@ -38,7 +54,7 @@ const productSchema = new mongoose.Schema(
     description: { type: String, required: true, trim: true, maxlength: 5000 },
     shortDescription: { type: String, trim: true, maxlength: 300, default: '' },
 
-    brand: { type: String, required: true, trim: true, maxlength: 80, default: 'TOUCH' },
+    brand: { type: String, required: true, trim: true, maxlength: 80, default: 'TOUCHH' },
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Category',

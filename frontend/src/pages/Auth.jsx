@@ -1,26 +1,132 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import { ArrowRight, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, CheckCircle2, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/endpoints';
 import { useDocumentMeta } from '../hooks';
 import { Button, Input, Alert, Spinner } from '../components/ui';
+import { SLOTS } from '../components/home/editorialSlots';
+import { AUTH_STORY } from '../config/auth';
 
 /** Only same-site relative paths are honoured, blocking open-redirect abuse. */
 function safeRedirect(value) {
   return value && /^\/(?!\/)/.test(value) ? value : '/';
 }
 
-function AuthShell({ title, subtitle, children, footer }) {
+/* ═════════════════════════ Shared frame ══════════════════════════════════ */
+
+/**
+ * The editorial photograph comes from the same bundled photography as the
+ * homepage (`npm run assets:editorial`): a tall crop beside the form on large
+ * screens and a wide crop above it on phones. Without those files the frame
+ * falls back to the homepage photograph, then to a quiet warm panel.
+ */
+function slotSources(slot) {
+  const entry = SLOTS[slot];
+  if (!entry?.webp.length) return null;
+  const set = (files) => files.map((file) => `${file.url} ${file.width}w`).join(', ');
+  return { avif: entry.avif.length ? set(entry.avif) : null, webp: set(entry.webp), src: entry.webp[entry.webp.length - 1].url };
+}
+
+const TALL_PHOTO = slotSources('auth') || slotSources('hero-full-length');
+const WIDE_PHOTO = slotSources('auth-mobile') || TALL_PHOTO;
+
+function AuthPhoto({ sources, sizes, position = 'center top' }) {
+  if (!sources) return <div className="editorial-slot absolute inset-0" aria-hidden="true" />;
   return (
-    <div className="shell flex min-h-[70vh] items-center justify-center py-14">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-display-3">{title}</h1>
-          {subtitle && <p className="mt-2.5 text-sm text-ink-muted">{subtitle}</p>}
+    <picture className="absolute inset-0 block h-full w-full">
+      {sources.avif && <source type="image/avif" srcSet={sources.avif} sizes={sizes} />}
+      <source type="image/webp" srcSet={sources.webp} sizes={sizes} />
+      <img
+        src={sources.src}
+        alt=""
+        decoding="async"
+        style={{ objectPosition: position }}
+        className="h-full w-full object-cover"
+      />
+    </picture>
+  );
+}
+
+function Wordmark({ className = '' }) {
+  return (
+    <Link to="/" aria-label="TOUCHH — home" className={`inline-flex min-h-[44px] items-center font-display tracking-[0.34em] ${className}`}>
+      TOUCHH
+    </Link>
+  );
+}
+
+/** The brand photograph: a compact band above the form on phones, a full panel beside it from 1024px. */
+function AuthVisual() {
+  return (
+    <>
+      <div className="relative h-[clamp(9.5rem,40vw,12rem)] overflow-hidden bg-umber lg:hidden">
+        <AuthPhoto sources={WIDE_PHOTO} sizes="100vw" position="center 20%" />
+        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/20 to-ink/45" />
+        {/* On phones the way back sits on the photograph, so the form starts sooner. */}
+        <Link
+          to="/shop"
+          className="absolute left-3 top-1 inline-flex min-h-[44px] items-center gap-1.5 px-2 text-2xs font-medium uppercase tracking-wider2 text-paper/90 transition-colors hover:text-paper sm:left-8"
+        >
+          <ArrowLeft size={14} aria-hidden="true" /> Back to shopping
+        </Link>
+        <div className="absolute inset-x-0 bottom-0 px-5 pb-3 sm:px-10">
+          <Wordmark className="text-xl text-paper" />
+          <p className="-mt-1.5 font-display text-sm italic text-paper/85">{AUTH_STORY.title}</p>
         </div>
-        <div className="card p-7 sm:p-8">{children}</div>
-        {footer && <div className="mt-6 text-center text-sm text-ink-muted">{footer}</div>}
+      </div>
+
+      <aside className="relative hidden bg-umber lg:block" aria-hidden="false">
+        <div className="sticky top-0 h-screen overflow-hidden">
+          <AuthPhoto sources={TALL_PHOTO} sizes="(min-width: 1024px) 55vw, 1px" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/15 to-ink/35" />
+          <div className="absolute inset-x-0 top-0 flex items-center justify-between px-12 pt-8 xl:px-16">
+            <Wordmark className="text-2xl text-paper" />
+            <span className="text-2xs font-medium uppercase tracking-[0.3em] text-paper/70">{AUTH_STORY.eyebrow}</span>
+          </div>
+          <div className="absolute inset-x-0 bottom-0 px-12 pb-14 xl:px-16 xl:pb-16">
+            <span aria-hidden="true" className="block h-px w-12 bg-gold" />
+            <p className="mt-6 max-w-[16ch] font-display text-[2.75rem] leading-[1.05] text-paper xl:text-[3.25rem]">
+              {AUTH_STORY.title}
+            </p>
+            <p className="mt-4 text-sm tracking-wide text-paper/80">{AUTH_STORY.line}</p>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+/**
+ * Split-screen frame shared by every account page: the brand photograph and
+ * the form. Only the presentation lives here — each page keeps its own
+ * fields, requests and messages.
+ */
+function AuthShell({ eyebrow, title, subtitle, children, footer }) {
+  return (
+    <div
+      // Phones and tablets: the photo band keeps its own height and the form takes the rest,
+      // so a short form never leaves a gap under the photo.
+      className="grid min-h-screen grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:grid-rows-1">
+      <AuthVisual />
+
+      <div className="flex min-w-0 flex-col bg-paper">
+        <div className="hidden items-center justify-between gap-4 px-10 pt-8 lg:flex xl:px-14">
+          <Link to="/shop" className="link-arrow text-2xs uppercase tracking-wider2">
+            <ArrowLeft size={14} aria-hidden="true" /> Back to shopping
+          </Link>
+        </div>
+
+        <main id="main" className="flex flex-1 justify-center px-5 pb-12 pt-6 sm:px-10 sm:pt-8 lg:items-center lg:px-10 lg:pb-16 xl:px-14">
+          <div className="w-full max-w-[27rem] animate-fade-up">
+            {eyebrow && <p className="text-2xs font-medium uppercase tracking-[0.24em] text-clay-deep">{eyebrow}</p>}
+            <h1 className="mt-3 font-display text-[2.125rem] leading-[1.05] text-ink sm:text-[2.75rem]">{title}</h1>
+            <span aria-hidden="true" className="mt-5 block h-px w-12 bg-gold" />
+            {subtitle && <p className="mt-5 text-sm leading-relaxed text-ink-muted">{subtitle}</p>}
+            <div className="mt-8">{children}</div>
+            {footer && <div className="mt-8 border-t border-line pt-6 text-sm text-ink-muted">{footer}</div>}
+          </div>
+        </main>
       </div>
     </div>
   );
@@ -36,22 +142,23 @@ function PasswordInput({ label = 'Password', value, onChange, ...rest }) {
         type={visible ? 'text' : 'password'}
         value={value}
         onChange={onChange}
+        style={{ paddingRight: '3rem' }}
         {...rest}
       />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? 'Hide password' : 'Show password'}
-        className="absolute right-3 top-[2.15rem] p-1 text-ink-faint transition-colors hover:text-ink"
+        className="absolute right-0 top-6 flex h-11 w-11 items-center justify-center rounded-control text-ink-faint
+                   transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
       >
-        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+        {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
       </button>
     </div>
   );
 }
 
 /* ═════════════════════════ Login ═════════════════════════════════════════ */
-
 export function Login() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -80,14 +187,15 @@ export function Login() {
 
   return (
     <AuthShell
+      eyebrow="Welcome back"
       title="Sign in"
-      subtitle="Track orders, save addresses and keep your wishlist."
+      subtitle="Sign in to track your orders, save addresses and keep your wishlist."
       footer={
         <>
-          New to TOUCH?{' '}
+          New to TOUCHH?{' '}
           <Link
             to={`/register${params.get('redirect') ? `?redirect=${encodeURIComponent(params.get('redirect'))}` : ''}`}
-            className="link font-medium"
+            className="link inline-flex min-h-[44px] items-center font-medium"
           >
             Create an account
           </Link>
@@ -109,9 +217,12 @@ export function Login() {
             value={password} onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
           />
-          <div className="mt-2 text-right">
-            <Link to="/forgot-password" className="text-xs text-ink-muted hover:text-ink">
-              Forgot your password?
+          <div className="mt-1 flex justify-end">
+            <Link
+              to="/forgot-password"
+              className="inline-flex min-h-[44px] items-center text-xs text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+            >
+              Forgot password?
             </Link>
           </div>
         </div>
@@ -165,14 +276,15 @@ export function Register() {
 
   return (
     <AuthShell
-      title="Create an account"
+      eyebrow="Join TOUCHH"
+      title="Create account"
       subtitle="It takes a moment and makes checkout faster next time."
       footer={
         <>
           Already have an account?{' '}
           <Link
             to={`/login${params.get('redirect') ? `?redirect=${encodeURIComponent(params.get('redirect'))}` : ''}`}
-            className="link font-medium"
+            className="link inline-flex min-h-[44px] items-center font-medium"
           >
             Sign in
           </Link>
@@ -260,7 +372,7 @@ export function ForgotPassword() {
 
   if (sent) {
     return (
-      <AuthShell title="Check your inbox">
+      <AuthShell eyebrow="Account help" title="Check your inbox">
         <div className="text-center">
           <Mail size={30} className="mx-auto mb-5 text-clay" aria-hidden="true" />
           <p className="text-sm leading-relaxed text-ink-muted">{message}</p>
@@ -275,9 +387,14 @@ export function ForgotPassword() {
 
   return (
     <AuthShell
-      title="Reset your password"
-      subtitle="We will email you a link to set a new one."
-      footer={<Link to="/login" className="link">Back to sign in</Link>}
+      eyebrow="Account help"
+      title="Forgot your password?"
+      subtitle="Enter your email and we’ll send you a secure reset link."
+      footer={(
+        <Link to="/login" className="link-arrow">
+          <ArrowLeft size={14} aria-hidden="true" /> Back to Sign in
+        </Link>
+      )}
     >
       <form onSubmit={submit} className="space-y-5" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
@@ -330,7 +447,7 @@ export function ResetPassword() {
 
   if (done) {
     return (
-      <AuthShell title="Password updated">
+      <AuthShell eyebrow="All set" title="Password updated">
         <div className="text-center">
           <CheckCircle2 size={30} className="mx-auto mb-5 text-success" aria-hidden="true" />
           <p className="text-sm leading-relaxed text-ink-muted">
@@ -343,7 +460,7 @@ export function ResetPassword() {
   }
 
   return (
-    <AuthShell title="Set a new password" subtitle="Choose something you have not used before.">
+    <AuthShell eyebrow="Account help" title="Set a new password" subtitle="Choose something you have not used before.">
       <form onSubmit={submit} className="space-y-5" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
 
@@ -436,7 +553,7 @@ export function VerifyEmail() {
 
   if (status === 'verifying') {
     return (
-      <AuthShell title="Verifying your email">
+      <AuthShell eyebrow="Email verification" title="Verifying your email">
         <div className="flex justify-center py-6">
           <Spinner label="Verifying your email" />
         </div>
@@ -446,7 +563,7 @@ export function VerifyEmail() {
 
   if (status === 'verified') {
     return (
-      <AuthShell title="Email verified">
+      <AuthShell eyebrow="Email verification" title="Email verified">
         <div className="text-center">
           <CheckCircle2 size={30} className="mx-auto mb-5 text-success" aria-hidden="true" />
           <p className="text-sm leading-relaxed text-ink-muted">
@@ -464,8 +581,9 @@ export function VerifyEmail() {
 
   return (
     <AuthShell
+      eyebrow="Email verification"
       title="We could not verify your email"
-      footer={<Link to="/" className="link">Back to the shop</Link>}
+      footer={<Link to="/" className="link inline-flex min-h-[44px] items-center">Back to the shop</Link>}
     >
       <div className="space-y-5">
         <Alert tone="error">{error}</Alert>
@@ -476,9 +594,10 @@ export function VerifyEmail() {
             {resend.state === 'failed' && <Alert tone="error">{resend.message}</Alert>}
             {resend.state !== 'sent' && (
               <Button size="lg" fullWidth loading={resend.state === 'sending'} onClick={requestNewLink}>
-                <Mail size={15} aria-hidden="true" /> Send a new link
+                <Mail size={15} aria-hidden="true" /> Resend email
               </Button>
             )}
+            <Button to="/shop" variant="secondary" size="lg" fullWidth>Continue shopping</Button>
           </>
         ) : (
           <>

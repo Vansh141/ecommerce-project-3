@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { codAvailable } from '../config/storefront';
 import {
   Heart, Minus, Plus, Truck, RotateCcw, ShieldCheck, Star, ChevronDown, PackageX,
 } from 'lucide-react';
@@ -14,6 +15,8 @@ import {
   Button, Breadcrumbs, Skeleton, Alert, EmptyState, SectionHeading, Textarea, Modal,
 } from '../components/ui';
 import { formatPrice, discountPercent, sortSizes, formatDate } from '../utils/format';
+import { framingStyle } from '../utils/images';
+import { BUSINESS_LOCALITY } from '../config/business';
 import {
   FREE_SHIPPING_THRESHOLD, SHIPPING_FLAT_RATE, RETURN_WINDOW_DAYS,
 } from '../config/store';
@@ -70,6 +73,7 @@ function Gallery({ images = [], name }) {
                 alt=""
                 loading="lazy"
                 decoding="async"
+                style={framingStyle(img.framing)}
                 className="h-full w-full object-cover"
               />
             </button>
@@ -83,6 +87,7 @@ function Gallery({ images = [], name }) {
           alt={images[active].alt || name}
           loading="eager"
           decoding="async"
+          style={framingStyle(images[active].framing)}
           className="aspect-[4/5] w-full object-cover"
         />
       </div>
@@ -267,9 +272,13 @@ function ReviewSection({ product }) {
 
 export default function ProductDetail() {
   const { slug } = useParams();
-  const { addItem } = useCart();
+  const { payments } = useOutletContext() || {};
+  const { addItem, updateQty, items: bagItems } = useCart();
   const { toggle, has } = useWishlist();
+  const { isAuthenticated } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
+  const buyingRef = useRef(false);
 
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [qty, setQty] = useState(1);
@@ -344,20 +353,42 @@ export default function ProductDetail() {
   const maxQty = Math.min(selectedVariant?.stock ?? 10, 10);
   const lowStock = selectedVariant && selectedVariant.stock > 0 && selectedVariant.stock <= 5;
 
-  const handleAdd = () => {
+  /** The size and quantity gate shared by both purchase buttons. */
+  const canPurchase = () => {
     // The gate that the old build was missing: no size, no purchase.
     if (requiresSize && !selectedVariant) {
       setSizeError(true);
       document.getElementById('size-selector')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      return;
+      return false;
     }
     if (!selectedVariant || selectedVariant.stock < qty) {
       toast.error('That size is not available in the quantity requested.');
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const handleAdd = () => {
+    if (!canPurchase()) return;
     addItem(product, selectedVariant, qty);
     toast.success(`${product.name} (${selectedVariant.size}) added to your bag.`);
+  };
+
+  /**
+   * Puts exactly this size and quantity in the bag, then continues to the
+   * normal checkout. An existing line is set rather than added to, so coming
+   * back and buying again never doubles it; the rest of the bag is untouched.
+   */
+  const handleBuyNow = () => {
+    if (buyingRef.current || !canPurchase()) return;
+    buyingRef.current = true;
+
+    const inBag = bagItems.some((i) => i.product === product._id && i.variantId === selectedVariant._id);
+    if (inBag) updateQty(product._id, selectedVariant._id, qty);
+    else addItem(product, selectedVariant, qty);
+
+    // The same route the bag's checkout button takes, sign-in included.
+    navigate(isAuthenticated ? '/checkout' : '/login?redirect=%2Fcheckout');
   };
 
   return (
@@ -482,20 +513,28 @@ export default function ProductDetail() {
                 </button>
               </div>
 
-              <Button
-                size="lg"
-                fullWidth
-                onClick={handleAdd}
-                disabled={outOfStock}
-                // `sm:` matters: the row only becomes horizontal at `sm`. An
-                // unqualified `flex-1` sets flex-basis:0 on the *height* while
-                // the container is still a column, which overrides the button's
-                // fixed height and collapses the primary CTA to a text-height
-                // sliver on every phone.
-                className="sm:flex-1"
-              >
-                {outOfStock ? 'Sold out' : 'Add to bag'}
-              </Button>
+              {/* Two columns on phones; part of the row from `sm`. `flex-1` stays
+                  `sm:`-qualified: unqualified, it sets flex-basis:0 on the height
+                  while the container is a column and collapses the buttons. */}
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:min-w-0 sm:flex-1">
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={handleAdd}
+                  disabled={outOfStock}
+                  className="min-w-0 whitespace-nowrap px-3 sm:flex-1 sm:px-4"
+                >
+                  {outOfStock ? 'Sold out' : 'Add to bag'}
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={handleBuyNow}
+                  disabled={outOfStock}
+                  className="min-w-0 whitespace-nowrap px-3 sm:flex-1 sm:px-4"
+                >
+                  Buy now
+                </Button>
+              </div>
 
               <Button
                 variant="ghost"
@@ -530,7 +569,11 @@ export default function ProductDetail() {
                   text: `Free shipping on orders over ${formatPrice(FREE_SHIPPING_THRESHOLD)}`,
                 },
                 { icon: RotateCcw, text: `${RETURN_WINDOW_DAYS}-day returns on unworn items` },
-                { icon: ShieldCheck, text: 'Secure payment · Cash on delivery available' },
+                {
+                  icon: ShieldCheck,
+                  // Cash on delivery is mentioned only when the store can accept it.
+                  text: codAvailable(payments) ? 'Secure payment · Cash on delivery available' : 'Secure payment',
+                },
               ].map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-start gap-2.5 text-sm leading-relaxed text-ink-muted">
                   <Icon size={15} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
@@ -572,7 +615,7 @@ export default function ProductDetail() {
 
               <Accordion title="Shipping & returns">
                 <p>
-                  Orders are dispatched from Mumbai. Shipping is free on orders over{' '}
+                  Orders are dispatched from {BUSINESS_LOCALITY}. Shipping is free on orders over{' '}
                   {formatPrice(FREE_SHIPPING_THRESHOLD)}; below that a flat{' '}
                   {formatPrice(SHIPPING_FLAT_RATE)} applies. Unworn items in original condition
                   can be returned within {RETURN_WINDOW_DAYS} days of delivery.
@@ -594,7 +637,7 @@ export default function ProductDetail() {
         <section className="border-t border-line section">
           <div className="shell">
             <SectionHeading eyebrow="You may also like" title="Complete the look" />
-            <ProductGrid products={relatedData.products.slice(0, 4)} />
+            <ProductGrid products={relatedData.products.slice(0, 4)} columns="wide" priorityCount={0} />
           </div>
         </section>
       )}

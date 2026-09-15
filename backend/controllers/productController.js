@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Review = require('../models/Review');
+const Order = require('../models/Order');
 const ApiError = require('../utils/ApiError');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess, sendCreated, paginationMeta } = require('../utils/apiResponse');
@@ -9,6 +10,7 @@ const { safeSearchRegex } = require('../utils/sanitize');
 const { uniqueSlug } = require('../utils/slugify');
 const storageService = require('../services/storageService');
 const config = require('../config/env');
+const { resolveProductSections } = require('../services/productSectionService');
 
 /** Fields safe to expose on a list card. Keeps payloads small on mobile. */
 const LIST_FIELDS =
@@ -238,6 +240,17 @@ const getHomeCollections = asyncHandler(async (_req, res) => {
   return sendSuccess(res, { newArrivals, featured, onSale, bestSellers });
 });
 
+// ── POST /api/products/sections ─────────────────────────────────────────────
+/**
+ * Products for every product section on the homepage, in one request. The
+ * sections describe sources (new arrivals, a category, hand-picked products…),
+ * never products themselves, and only active products are returned.
+ */
+const getProductSections = asyncHandler(async (req, res) => {
+  const sections = await resolveProductSections(req.body.sections);
+  return sendSuccess(res, { sections });
+});
+
 // ── Admin: create ────────────────────────────────────────────────────────────
 const createProduct = asyncHandler(async (req, res) => {
   const category = await Category.findById(req.body.category);
@@ -340,27 +353,36 @@ const archiveProduct = asyncHandler(async (req, res) => {
 });
 
 // ── Admin: permanent delete (only when never ordered) ────────────────────────
+const referencedError = () =>
+  ApiError.conflict(
+    'This product is part of existing orders, so it cannot be permanently deleted. You can remove it from the store instead.',
+    { code: 'PRODUCT_REFERENCED' }
+  );
+
 const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product) throw ApiError.notFound('Product not found.');
 
-  // eslint-disable-next-line global-require
-  const Order = require('../models/Order');
-  const referenced = await Order.exists({ 'items.product': product._id });
-  if (referenced) {
-    throw ApiError.conflict(
-      'This product appears in existing orders and cannot be deleted. Archive it instead.',
-      { code: 'PRODUCT_REFERENCED' }
-    );
+  const isReferenced = () => Order.exists({ 'items.product': product._id });
+  if (await isReferenced()) throw referencedError();
+
+  // Hide the product before deleting so no new order can be priced against it,
+  // then check again: an order placed in between keeps the product, restored to
+  // its previous status.
+  const previousStatus = product.status;
+  await Product.updateOne({ _id: product._id }, { $set: { status: 'archived' } });
+  if (await isReferenced()) {
+    await Product.updateOne({ _id: product._id, status: 'archived' }, { $set: { status: previousStatus } });
+    throw referencedError();
   }
 
+  await Product.deleteOne({ _id: product._id });
+  await Review.deleteMany({ product: product._id });
   await Promise.all(
     (product.images || [])
       .filter((i) => i.publicId)
       .map((i) => storageService.deleteImage(i.publicId).catch(() => {}))
   );
-  await Review.deleteMany({ product: product._id });
-  await product.deleteOne();
 
   return sendSuccess(res, { message: 'Product deleted.' });
 });
@@ -437,6 +459,7 @@ module.exports = {
   getFacets,
   getRelatedProducts,
   getHomeCollections,
+  getProductSections,
   createProduct,
   updateProduct,
   archiveProduct,

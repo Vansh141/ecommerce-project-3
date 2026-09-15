@@ -100,8 +100,8 @@ export function useBodyScrollLock(locked) {
  */
 export function useDocumentMeta({ title, description, image, canonical, noIndex = false }) {
   useEffect(() => {
-    const siteName = 'TOUCH';
-    const fullTitle = title ? `${title} — ${siteName}` : `${siteName} — Considered clothing`;
+    const siteName = 'TOUCHH';
+    const fullTitle = title ? `${title} — ${siteName}` : `${siteName} — Ethnic wear for every moment`;
     document.title = fullTitle;
 
     const setMeta = (selector, attr, key, content) => {
@@ -136,22 +136,7 @@ export function useDocumentMeta({ title, description, image, canonical, noIndex 
   }, [title, description, image, canonical, noIndex]);
 }
 
-/** Media query hook used to branch layout behaviour, not just styling. */
-export function useMediaQuery(query) {
-  const [matches, setMatches] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(query).matches
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = (e) => setMatches(e.matches);
-    mql.addEventListener('change', onChange);
-    setMatches(mql.matches);
-    return () => mql.removeEventListener('change', onChange);
-  }, [query]);
-
-  return matches;
-}
+export { useMediaQuery } from './useMediaQuery';
 
 /**
  * Keyboard containment for drawers and sheets.

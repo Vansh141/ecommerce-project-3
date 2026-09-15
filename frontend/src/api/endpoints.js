@@ -42,6 +42,8 @@ export const productApi = {
   related: (slug) => api.get(`/products/${slug}/related`).then(unwrap),
   facets: (params) => api.get('/products/facets', { params: clean(params) }).then(unwrap),
   homeCollections: () => api.get('/products/collections/home').then(unwrap),
+  /** Products for homepage sections, resolved together: `[{ id, source, limit, category?, products? }]`. */
+  sections: (sections) => api.post('/products/sections', { sections }).then(unwrap),
 
   create: (payload) => api.post('/products', payload).then(unwrap),
   update: (id, payload) => api.put(`/products/${id}`, payload).then(unwrap),
@@ -122,8 +124,37 @@ export const adminApi = {
   setStatus: (id, isActive) => api.patch(`/admin/customers/${id}/status`, { isActive }).then(unwrap),
 };
 
+// ── Storefront content ───────────────────────────────────────────────────────
+export const storefrontApi = {
+  /** Public: published homepage content only. */
+  published: () => api.get('/storefront').then(unwrap),
+
+  admin: () => api.get('/admin/storefront').then(unwrap),
+  saveDraft: (content) => api.put('/admin/storefront/draft', { content }).then(unwrap),
+  /** Publishes `content` when given (saving it as the draft first), else the saved draft. */
+  publish: (content) => api.post('/admin/storefront/publish', content ? { content } : {}).then(unwrap),
+  discard: () => api.post('/admin/storefront/discard').then(unwrap),
+  /** Makes the most recent earlier published version live again. */
+  restorePrevious: () => api.post('/admin/storefront/restore').then(unwrap),
+};
+
 // ── Uploads ──────────────────────────────────────────────────────────────────
+function postImage(url, file, onProgress) {
+  const form = new FormData();
+  form.append('image', file);
+  return api
+    .post(url, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (onProgress && e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+      },
+    })
+    .then(unwrap);
+}
+
 export const uploadApi = {
+  /** Homepage builder artwork: the same checks, a higher resolution ceiling for full-width banners. */
+  storefrontImage: (file, onProgress) => postImage('/upload/storefront', file, onProgress),
   image: (file, onProgress) => {
     const form = new FormData();
     form.append('image', file);

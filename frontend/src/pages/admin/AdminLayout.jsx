@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, FolderTree, Boxes, ShoppingBag, Users, Ticket,
+  LayoutDashboard, Package, FolderTree, Boxes, ShoppingBag, Users, Ticket, LayoutTemplate,
   Menu, X, ExternalLink, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/admin/categories', label: 'Categories', icon: FolderTree },
   { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/coupons', label: 'Coupons', icon: Ticket },
+  { to: '/admin/storefront', label: 'Storefront', icon: LayoutTemplate },
 ];
 
 export default function AdminLayout() {
@@ -43,7 +44,7 @@ export default function AdminLayout() {
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-3 border-b border-white/10 px-6 py-5">
         <Link to="/admin" className="block">
-          <span className="font-display text-lg uppercase tracking-luxe text-white">Touch</span>
+          <span className="font-display text-lg uppercase tracking-luxe text-white">Touchh</span>
           <span className="mt-0.5 block text-2xs uppercase tracking-wider2 text-white/40">
             Store admin
           </span>
@@ -116,7 +117,9 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex min-h-screen bg-paper">
+    // `theme-admin` keeps the admin panel on its established palette while the
+    // storefront carries the brand palette (see src/index.css).
+    <div className="theme-admin flex min-h-screen bg-paper">
       <aside className="hidden w-60 shrink-0 bg-ink lg:block">
         <div className="sticky top-0 h-screen"><SidebarContent /></div>
       </aside>
@@ -153,7 +156,7 @@ export default function AdminLayout() {
             >
               <Menu size={19} aria-hidden="true" />
             </button>
-            <span className="font-display text-base uppercase tracking-wider2 lg:hidden">Touch</span>
+            <span className="font-display text-base uppercase tracking-wider2 lg:hidden">Touchh</span>
             <div className="ml-auto">
               <Link
                 to="/"

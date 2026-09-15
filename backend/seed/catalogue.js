@@ -7,16 +7,9 @@
  * a product the business does not stock.
  */
 
+// New arrivals are a product flag (`isNewArrival`), surfaced at
+// /shop?newArrival=true — not a category, which would sit empty.
 const categories = [
-  {
-    key: 'new-arrivals',
-    name: 'New Arrivals',
-    description: 'The latest pieces to land in the studio.',
-    displayOrder: 1,
-    image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1200',
-    metaTitle: 'New Arrivals',
-    metaDescription: 'Discover the newest additions to the TOUCH collection.',
-  },
   {
     key: 'dresses',
     name: 'Dresses',
@@ -259,22 +252,6 @@ const products = [
     ],
     tags: ['maxi', 'cotton', 'summer', 'dress'],
     stock: { XS: 5, S: 9, M: 12, L: 6, XL: 3 },
-  },
-  {
-    name: 'Kiara Pleated Midi Skirt',
-    category: 'bottoms',
-    price: 1990,
-    mrp: 2490,
-    shortDescription: 'Knife pleats with a soft, satin finish.',
-    description:
-      'A knife-pleated midi with an elasticated waist and a soft satin finish that catches the light without shine. Falls mid-calf on most heights.',
-    material: '100% recycled polyester satin',
-    careInstructions: 'Hand wash cold or dry clean. Do not tumble dry. Cool iron.',
-    images: [
-      'https://images.unsplash.com/photo-1583496661160-fb5886a13d77?auto=format&fit=crop&q=80&w=1000',
-    ],
-    tags: ['skirt', 'pleated', 'midi'],
-    stock: { XS: 4, S: 10, M: 11, L: 7, XL: 4 },
   },
   {
     name: 'Sia Silk Scarf',

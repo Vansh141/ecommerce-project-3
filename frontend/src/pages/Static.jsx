@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Instagram, MapPin, Send, CheckCircle2, Compass } from 'lucide-react';
+import { Mail, Instagram, MapPin, Phone, Send, CheckCircle2, Compass } from 'lucide-react';
 import { contactApi } from '../api/endpoints';
+import {
+  BRAND_NAME, BUSINESS_ADDRESS, BUSINESS_LOCALITY, CONTACT, INSTAGRAM, LEGAL,
+} from '../config/business';
 import { useDocumentMeta } from '../hooks';
 import {
   FREE_SHIPPING_THRESHOLD,
@@ -31,31 +34,18 @@ const H2 = ({ children }) => <h2 className="mb-3 mt-10 text-lg first:mt-0">{chil
 export function About() {
   useDocumentMeta({
     title: 'About',
-    description: 'TOUCH is a small clothing studio in Mumbai making considered pieces in natural fabrics.',
+    description: `${BRAND_NAME} — timeless Indian ethnic wear from ${BUSINESS_LOCALITY}, thoughtfully made for every occasion.`,
   });
 
   return (
     <Page
-      title="About TOUCH"
-      lead="A small clothing studio in Mumbai, making pieces we would want to wear every week."
+      title={`About ${BRAND_NAME}`}
+      lead="Timeless Indian ethnic wear, thoughtfully made for every occasion."
     >
       <p>
-        TOUCH began with a simple frustration: too many clothes are made to be
-        photographed once and worn twice. We wanted the opposite — pieces that
-        earn their place in a wardrobe through fit, fabric and repetition.
-      </p>
-
-      <H2>How we make things</H2>
-      <p>
-        We work in small runs with a handful of makers, mostly in and around
-        Mumbai and Jaipur. Small batches mean we can be careful about fabric and
-        finishing, and it means we are not sitting on warehouses of unsold stock.
-      </p>
-      <p>
-        Our fabrics are largely natural — linen, cotton, cotton mul and silk.
-        Hand-block printing and chikankari are done by artisans who have worked
-        in those techniques for years. Where a piece is handmade, slight
-        variation is part of it.
+        {BRAND_NAME} is an Indian ethnic wear label based in {BUSINESS_LOCALITY}, trading
+        as {LEGAL.tradeName}. We bring together pieces for celebrations, festivals
+        and everyday wear, and sell them directly through this store.
       </p>
 
       <H2>Sizing</H2>
@@ -70,14 +60,17 @@ export function About() {
       <p>
         We are a small team, so you will usually be talking to one of us
         directly. The quickest way to reach us is{' '}
-        <Link to="/contact" className="link">the contact form</Link>, or Instagram at{' '}
+        <Link to="/contact" className="link">the contact form</Link>, a call on{' '}
+        <a href={CONTACT.phoneHref} aria-label={`Call ${BRAND_NAME} at ${CONTACT.phoneDisplay}`} className="link whitespace-nowrap">
+          {CONTACT.phoneDisplay}
+        </a>, or Instagram at{' '}
         <a
-          href="https://www.instagram.com/touchh.in"
+          href={INSTAGRAM.url}
           target="_blank"
           rel="noopener noreferrer"
           className="link"
         >
-          @touchh.in
+          {INSTAGRAM.handle}
         </a>.
       </p>
     </Page>
@@ -93,7 +86,7 @@ export function Contact() {
 
   useDocumentMeta({
     title: 'Contact',
-    description: 'Get in touch with the TOUCH studio about an order, a product or a return.',
+    description: `Get in touch with ${BRAND_NAME} about an order, a product or a return.`,
   });
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -129,34 +122,49 @@ export function Contact() {
         <div className="grid gap-10 lg:grid-cols-[20rem_1fr] lg:gap-16">
           <div className="space-y-5">
             <a
-              href="mailto:support@touchfashion.in"
-              className="flex items-start gap-3.5 text-sm transition-colors hover:text-clay-deep"
+              href={CONTACT.phoneHref}
+              aria-label={`Call ${BRAND_NAME} at ${CONTACT.phoneDisplay}`}
+              className="flex min-h-[44px] items-start gap-3.5 text-sm transition-colors hover:text-clay-deep"
             >
-              <Mail size={17} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
+              <Phone size={17} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
               <span>
-                <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Email</span>
-                support@touchfashion.in
+                <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Phone</span>
+                <span className="whitespace-nowrap">{CONTACT.phoneDisplay}</span>
               </span>
             </a>
 
             <a
-              href="https://www.instagram.com/touchh.in"
+              href={CONTACT.emailHref}
+              aria-label={`Email ${BRAND_NAME} at ${CONTACT.email}`}
+              className="flex min-h-[44px] items-start gap-3.5 text-sm transition-colors hover:text-clay-deep"
+            >
+              <Mail size={17} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
+              <span className="min-w-0">
+                <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Email</span>
+                <span className="break-all">{CONTACT.email}</span>
+              </span>
+            </a>
+
+            <a
+              href={INSTAGRAM.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-3.5 text-sm transition-colors hover:text-clay-deep"
+              className="flex min-h-[44px] items-start gap-3.5 text-sm transition-colors hover:text-clay-deep"
             >
               <Instagram size={17} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
               <span>
                 <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Instagram</span>
-                @touchh.in
+                {INSTAGRAM.handle}
               </span>
             </a>
 
             <div className="flex items-start gap-3.5 text-sm">
               <MapPin size={17} className="mt-0.5 shrink-0 text-clay" aria-hidden="true" />
               <span>
-                <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Studio</span>
-                Mumbai, India
+                <span className="block text-2xs uppercase tracking-wider2 text-ink-faint">Business address</span>
+                <address className="not-italic leading-relaxed">
+                  {BUSINESS_ADDRESS.map((line) => <span key={line} className="block">{line}</span>)}
+                </address>
               </span>
             </div>
           </div>
@@ -226,7 +234,7 @@ export function Contact() {
  *   • "dispatched within 1–2 business days"
  *   • "refunds ... typically within 5–7 business days of receipt"
  *   • "we read everything and reply within 24–48 hours on business days"
- *   • the studio location (Mumbai) and the support address
+ *   • the dispatch location and the support address (from config/business)
  *   • which items are non-returnable for hygiene reasons
  *   • the "final sale" concept — nothing in the product model marks an item
  *     as final sale today, so that sentence currently describes nothing
@@ -237,14 +245,14 @@ export function Contact() {
 export function ShippingReturns() {
   useDocumentMeta({
     title: 'Shipping & returns',
-    description: `How TOUCH ships orders across India and how to return an unworn piece within ${RETURN_WINDOW_DAYS} days.`,
+    description: `How ${BRAND_NAME} ships orders across India and how to return an unworn piece within ${RETURN_WINDOW_DAYS} days.`,
   });
 
   return (
     <Page title="Shipping & returns" lead="How your order reaches you, and what to do if it is not right.">
       <H2>Shipping</H2>
       <p>
-        We ship across India from our studio in Mumbai. Shipping is free on orders
+        We ship across India from {BUSINESS_LOCALITY}. Shipping is free on orders
         over {formatPrice(FREE_SHIPPING_THRESHOLD)}. Below that, a flat{' '}
         {formatPrice(SHIPPING_FLAT_RATE)} applies, shown at checkout before you pay.
       </p>
@@ -260,7 +268,7 @@ export function ShippingReturns() {
       <p>
         Unworn, unwashed items in original condition with tags attached can be
         returned within {RETURN_WINDOW_DAYS} days of delivery. Write to us at{' '}
-        <a href="mailto:support@touchfashion.in" className="link">support@touchfashion.in</a>{' '}
+        <a href={CONTACT.emailHref} className="link break-all">{CONTACT.email}</a>{' '}
         with your order number and we will arrange it.
       </p>
       <p>
@@ -286,7 +294,7 @@ export function ShippingReturns() {
 }
 
 export function Privacy() {
-  useDocumentMeta({ title: 'Privacy policy', description: 'How TOUCH handles your personal data.' });
+  useDocumentMeta({ title: 'Privacy policy', description: `How ${BRAND_NAME} handles your personal data.` });
 
   return (
     <Page title="Privacy policy" lead="What we collect, why, and what we do not do with it.">
@@ -322,7 +330,7 @@ export function Privacy() {
       <p>
         You can update your details from your account, unsubscribe from emails at
         any time, and ask us to close your account by writing to{' '}
-        <a href="mailto:support@touchfashion.in" className="link">support@touchfashion.in</a>.
+        <a href={CONTACT.emailHref} className="link break-all">{CONTACT.email}</a>.
         Closing an account anonymises your profile; order records are retained where
         we are required to keep them for tax purposes.
       </p>
@@ -331,7 +339,7 @@ export function Privacy() {
 }
 
 export function Terms() {
-  useDocumentMeta({ title: 'Terms of use', description: 'Terms governing purchases from TOUCH.' });
+  useDocumentMeta({ title: 'Terms of use', description: `Terms governing purchases from ${BRAND_NAME}.` });
 
   return (
     <Page title="Terms of use" lead="The basis on which we sell to you.">
@@ -365,7 +373,7 @@ export function Terms() {
       </p>
 
       <H2>Governing law</H2>
-      <p>These terms are governed by the laws of India, with jurisdiction in Mumbai.</p>
+      <p>These terms are governed by the laws of India, with jurisdiction in {BUSINESS_LOCALITY}.</p>
     </Page>
   );
 }

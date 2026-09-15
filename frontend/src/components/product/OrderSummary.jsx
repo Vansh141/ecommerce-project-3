@@ -38,7 +38,7 @@ export default function OrderSummary({ showCoupon = true, children, sticky = tru
   );
 
   return (
-    <div className={sticky ? 'lg:sticky lg:top-32' : ''}>
+    <div className={sticky ? 'lg:sticky lg:top-sticky' : ''}>
       <div className="card-pad">
         <h2 className="mb-5 text-base">Order summary</h2>
 

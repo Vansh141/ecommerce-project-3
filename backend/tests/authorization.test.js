@@ -22,6 +22,12 @@ const ADMIN_ROUTES = [
   ['post', '/api/categories'],
   ['post', '/api/coupons'],
   ['post', '/api/upload'],
+  ['post', '/api/upload/storefront'],
+  ['get', '/api/admin/storefront'],
+  ['put', '/api/admin/storefront/draft'],
+  ['post', '/api/admin/storefront/publish'],
+  ['post', '/api/admin/storefront/discard'],
+  ['post', '/api/admin/storefront/restore'],
 ];
 
 describe('Authorization', () => {

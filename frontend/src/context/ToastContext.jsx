@@ -51,12 +51,14 @@ export function ToastProvider({ children }) {
       {children}
 
       {/* Announced politely so screen readers hear confirmations without
-          interrupting whatever the user is doing. */}
+          interrupting whatever the user is doing. `toast-region` sets the
+          bottom offset, lifting the stack above the mobile bottom navigation
+          while it is visible. */}
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2
-                   p-4 pb-safe sm:items-end sm:p-6"
+        className="toast-region pointer-events-none fixed inset-x-0 z-[100] flex flex-col items-center gap-2
+                   px-4 pt-4 sm:items-end sm:px-6 sm:pt-6"
       >
         {toasts.map(({ id, message, tone }) => {
           const { icon: Icon, cls } = TONES[tone] || TONES.info;

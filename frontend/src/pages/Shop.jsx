@@ -289,7 +289,7 @@ export default function Shop() {
     title: activeCategory ? activeCategory.name : 'Shop all',
     description:
       activeCategory?.metaDescription ||
-      'Browse the full TOUCH collection — dresses, tops, co-ords, ethnic wear and accessories.',
+      'Browse the full TOUCHH collection — dresses, tops, co-ords, ethnic wear and accessories.',
   });
 
   const products = data?.products || [];
@@ -364,7 +364,7 @@ export default function Shop() {
 
       <div className="flex gap-8 xl:gap-10">
         <aside className="hidden w-52 shrink-0 lg:block xl:w-56">
-          <div className="sticky top-32">
+          <div className="sticky top-sticky">
             <Filters {...filterProps} />
           </div>
         </aside>

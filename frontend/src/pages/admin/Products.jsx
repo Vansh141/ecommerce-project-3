@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Plus, Pencil, Archive, Search, Upload, X, Trash2, ImageOff } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Plus, Pencil, Archive, Search, Trash2, ImageOff, ImagePlus, Crop, RefreshCw, X,
+} from 'lucide-react';
 import { productApi, categoryApi, uploadApi } from '../../api/endpoints';
 import { useFetch, useDebounced, useDocumentMeta } from '../../hooks';
 import { useToast } from '../../context/ToastContext';
@@ -8,106 +10,223 @@ import {
   EmptyState, Pagination, Checkbox,
 } from '../../components/ui';
 import { formatPrice, discountPercent, sortSizes } from '../../utils/format';
+import { framingStyle, hasCustomFraming } from '../../utils/images';
+import ProductImageEditor from './ProductImageEditor';
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const MAX_IMAGES = 6;
+const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/avif,image/gif';
 
 const EMPTY = {
-  name: '', description: '', shortDescription: '', brand: 'TOUCH', category: '',
+  name: '', description: '', shortDescription: '', brand: 'TOUCHH', category: '',
   price: '', mrp: '', status: 'draft', isFeatured: false, isNewArrival: false,
   material: '', careInstructions: '', tags: '', images: [], variants: [],
 };
+
+function withFraming(image, framing) {
+  const next = { ...image };
+  if (framing) next.framing = framing;
+  else delete next.framing;
+  return next;
+}
+
+/** One photo with its actions. The first photo is the main one. */
+function ImageItem({ image, index, main, disabled, replacing, progress, onEdit, onReplace, onRemove }) {
+  const which = main ? 'main image' : `image ${index + 1}`;
+  return (
+    <div className="flex gap-3 rounded-card border border-line p-2.5 sm:gap-4">
+      <div
+        className={`relative aspect-[3/4] shrink-0 overflow-hidden rounded-control bg-paper-sunken ${
+          main ? 'w-28 sm:w-36' : 'w-20 sm:w-24'
+        }`}
+      >
+        <img src={image.url} alt="" className="h-full w-full object-cover" style={framingStyle(image.framing)} />
+        {main && <span className="absolute left-1.5 top-1.5 badge-neutral bg-ink/80 text-paper">Main</span>}
+        {replacing && (
+          <span className="absolute inset-0 flex items-center justify-center bg-paper/85 text-2xs text-ink">
+            {progress}%
+          </span>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+        {hasCustomFraming(image.framing) && <p className="text-2xs text-ink-muted">Framing adjusted</p>}
+        <Button type="button" variant="ghost" size="sm" className="h-11 w-full" onClick={onEdit} disabled={disabled}>
+          <Crop size={14} aria-hidden="true" /> Edit image<span className="sr-only"> ({which})</span>
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant="ghost" size="sm" className="h-11 px-2" onClick={onReplace} disabled={disabled}>
+            <RefreshCw size={13} aria-hidden="true" /> Replace<span className="sr-only"> {which}</span>
+          </Button>
+          <Button
+            type="button" variant="ghost" size="sm" className="h-11 px-2 hover:text-danger"
+            onClick={onRemove} disabled={disabled}
+          >
+            <X size={14} aria-hidden="true" /> Remove<span className="sr-only"> {which}</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Image manager.
  *
  * Uploads go straight to the API, which validates magic bytes and re-encodes
  * the file. The URL returned is what gets stored — the browser never decides
- * where an image lives.
+ * where an image lives. Framing is saved alongside the image, never baked in.
+ * `onChange` receives an updater so a slow upload cannot overwrite edits made
+ * while it was running.
  */
 function ImageManager({ images, onChange }) {
   const toast = useToast();
-  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [editingUrl, setEditingUrl] = useState(null);
+  const replaceInput = useRef(null);
+  const replaceUrl = useRef(null);
 
-  const handleFiles = async (files) => {
-    const list = Array.from(files).slice(0, 6 - images.length);
-    if (list.length === 0) return;
-
-    setUploading(true);
+  const runUpload = async (target, work) => {
+    setBusy(target);
     try {
-      const uploaded = [];
-      for (const file of list) {
-         
-        const { image } = await uploadApi.image(file, setProgress);
-        uploaded.push(image);
-      }
-      onChange([...images, ...uploaded]);
-      toast.success(`${uploaded.length} image${uploaded.length > 1 ? 's' : ''} uploaded.`);
+      await work();
     } catch (err) {
       toast.error(err.friendlyMessage || 'Upload failed.');
     } finally {
-      setUploading(false);
+      setBusy(null);
       setProgress(0);
     }
   };
 
+  const addFiles = (files) => {
+    const list = Array.from(files).slice(0, MAX_IMAGES - images.length);
+    if (list.length === 0) return;
+    runUpload('add', async () => {
+      const uploaded = [];
+      for (const file of list) {
+        const { image } = await uploadApi.image(file, setProgress);
+        uploaded.push(image);
+      }
+      onChange((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
+      toast.success(`${uploaded.length} image${uploaded.length > 1 ? 's' : ''} uploaded.`);
+    });
+  };
+
+  const replaceWith = (file) => {
+    const url = replaceUrl.current;
+    replaceUrl.current = null;
+    if (!file || !url) return;
+    runUpload(url, async () => {
+      const { image } = await uploadApi.image(file, setProgress);
+      onChange((prev) => prev.map((img) => (img.url === url ? { ...image, alt: img.alt || image.alt } : img)));
+      toast.success('Image replaced.');
+    });
+  };
+
+  const startReplace = (url) => {
+    replaceUrl.current = url;
+    replaceInput.current?.click();
+  };
+
+  const editing = images.find((img) => img.url === editingUrl);
+
+  const item = (image, index) => (
+    <ImageItem
+      key={image.url}
+      image={image}
+      index={index}
+      main={index === 0}
+      disabled={busy !== null}
+      replacing={busy === image.url}
+      progress={progress}
+      onEdit={() => setEditingUrl(image.url)}
+      onReplace={() => startReplace(image.url)}
+      onRemove={() => onChange((prev) => prev.filter((img) => img.url !== image.url))}
+    />
+  );
+
   return (
     <div>
-      <span className="field-label">Images ({images.length}/6)</span>
-
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-        {images.map((img, i) => (
-          <div key={img.url} className="group relative aspect-[3/4] overflow-hidden bg-paper-sunken">
-            <img src={img.url} alt="" className="h-full w-full object-cover" />
-            {i === 0 && (
-              <span className="absolute left-1.5 top-1.5 badge-neutral bg-ink/80 text-paper">Main</span>
-            )}
-            <button
-              type="button"
-              onClick={() => onChange(images.filter((_, idx) => idx !== i))}
-              aria-label={`Remove image ${i + 1}`}
-              className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center
-                         rounded-full bg-ink/80 text-paper opacity-0 transition-opacity
-                         group-hover:opacity-100 focus:opacity-100"
-            >
-              <X size={12} />
-            </button>
-          </div>
-        ))}
-
-        {images.length < 6 && (
-          <label
-            className="flex aspect-[3/4] cursor-pointer flex-col items-center justify-center gap-2
-                       border border-dashed border-line-strong text-ink-faint transition-colors
-                       hover:border-ink hover:text-ink"
-          >
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
-              multiple
-              className="sr-only"
-              disabled={uploading}
-              onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-            />
-            {uploading ? (
-              <>
-                <span className="text-2xs">{progress}%</span>
-                <span className="text-2xs">Uploading</span>
-              </>
-            ) : (
-              <>
-                <Upload size={17} aria-hidden="true" />
-                <span className="text-2xs">Add</span>
-              </>
-            )}
-          </label>
-        )}
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="field-label">Images</span>
+        <span className="text-xs text-ink-muted">{images.length}/{MAX_IMAGES}</span>
       </div>
+      <p className="-mt-1 mb-3 text-xs text-ink-muted">
+        Use Edit image to adjust how the product is framed in the store.
+      </p>
+
+      {images.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-2xs uppercase tracking-wider2 text-ink-faint">Main image</p>
+            {item(images[0], 0)}
+          </div>
+
+          {images.length > 1 && (
+            <div>
+              <p className="mb-2 text-2xs uppercase tracking-wider2 text-ink-faint">Other images</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {images.slice(1).map((image, i) => item(image, i + 1))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {images.length < MAX_IMAGES && (
+        <label
+          className={`mt-3 flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-card border
+                      border-dashed border-line-strong px-4 py-3 text-sm text-ink-soft transition-colors
+                      hover:border-ink hover:text-ink focus-within:border-ink focus-within:text-ink
+                      ${images.length === 0 ? 'min-h-32 flex-col' : ''} ${busy !== null ? 'pointer-events-none opacity-60' : ''}`}
+        >
+          <input
+            type="file"
+            accept={IMAGE_ACCEPT}
+            multiple
+            className="sr-only"
+            disabled={busy !== null}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+          />
+          {busy === 'add' ? (
+            <span>Uploading {progress}%</span>
+          ) : (
+            <>
+              <ImagePlus size={17} aria-hidden="true" />
+              <span>{images.length === 0 ? 'Add the main image' : 'Add image'}</span>
+            </>
+          )}
+        </label>
+      )}
+
+      <input
+        ref={replaceInput}
+        type="file"
+        accept={IMAGE_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => { replaceWith(e.target.files?.[0]); e.target.value = ''; }}
+      />
 
       <p className="field-hint">
         JPG, PNG, WebP or AVIF up to 5 MB. Images are converted to WebP automatically.
-        The first image is used on listing pages.
+        The main image is shown on listing pages.
       </p>
+
+      {editing && (
+        <ProductImageEditor
+          key={editing.url}
+          image={editing}
+          onClose={() => setEditingUrl(null)}
+          onSave={(framing) => {
+            const url = editing.url;
+            onChange((prev) => prev.map((img) => (img.url === url ? withFraming(img, framing) : img)));
+            setEditingUrl(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -210,6 +329,45 @@ function VariantEditor({ variants, onChange }) {
   );
 }
 
+/**
+ * Wording for the delete / remove-from-store dialog.
+ *  • `delete`     — permanent deletion, only possible for never-ordered products
+ *  • `referenced` — deletion was refused because orders include the product
+ *  • `archive`    — hide from the store, keeping the product and its order history
+ */
+function removalDialog({ product, stage }) {
+  const name = `“${product.name}”`;
+  if (stage === 'delete') {
+    return {
+      title: 'Delete this product?',
+      message: `${name} will be removed from the catalogue. This cannot be undone.`,
+      confirmLabel: 'Delete product',
+      tone: 'danger',
+    };
+  }
+  if (stage === 'referenced') {
+    return product.status === 'archived'
+      ? {
+        title: 'This product can’t be deleted',
+        message: 'This product is part of existing orders, so it cannot be permanently deleted. It has already been removed from the store, so shoppers can no longer see or buy it.',
+        confirmLabel: 'OK',
+        tone: 'primary',
+      }
+      : {
+        title: 'This product can’t be deleted',
+        message: 'This product is part of existing orders, so it cannot be permanently deleted. You can remove it from the store instead.',
+        confirmLabel: 'Remove from store',
+        tone: 'primary',
+      };
+  }
+  return {
+    title: 'Remove this product from the store?',
+    message: `${name} will be hidden from shoppers straight away. Existing orders keep their record, and you can bring it back by setting its status to Active.`,
+    confirmLabel: 'Remove from store',
+    tone: 'primary',
+  };
+}
+
 export default function AdminProducts() {
   useDocumentMeta({ title: 'Products', noIndex: true });
   const toast = useToast();
@@ -224,7 +382,10 @@ export default function AdminProducts() {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
-  const [archiving, setArchiving] = useState(null);
+
+  const [removal, setRemoval] = useState(null);
+  const [removing, setRemoving] = useState(false);
+  const removingRef = useRef(false);
 
   const { data, meta, loading, refetch } = useFetch(
     () => productApi.list({ page, limit: 20, search: debouncedSearch, status: statusFilter || undefined }),
@@ -272,6 +433,9 @@ export default function AdminProducts() {
     setForm((f) => ({ ...f, [key]: value }));
   };
 
+  const setImages = (update) =>
+    setForm((f) => ({ ...f, images: typeof update === 'function' ? update(f.images) : update }));
+
   const save = async (e) => {
     e.preventDefault();
     setFormError(null);
@@ -307,16 +471,44 @@ export default function AdminProducts() {
     }
   };
 
-  const archive = async () => {
+  const closeRemoval = () => {
+    if (!removingRef.current) setRemoval(null);
+  };
+
+  const confirmRemoval = async () => {
+    if (!removal || removingRef.current) return;
+    const { product, stage } = removal;
+    if (stage === 'referenced' && product.status === 'archived') {
+      setRemoval(null);
+      return;
+    }
+
+    removingRef.current = true;
+    setRemoving(true);
     try {
-      await productApi.archive(archiving._id);
-      toast.success('Product archived. Order history is preserved.');
-      setArchiving(null);
+      if (stage === 'delete') {
+        await productApi.remove(product._id);
+        toast.success(`“${product.name}” was deleted.`);
+      } else {
+        await productApi.archive(product._id);
+        toast.success('Product removed from the store. Order history is preserved.');
+      }
+      setRemoval(null);
+      if (editing?._id === product._id) setModalOpen(false);
       refetch();
     } catch (err) {
-      toast.error(err.friendlyMessage);
+      if (stage === 'delete' && err.errorCode === 'PRODUCT_REFERENCED') {
+        setRemoval({ product, stage: 'referenced' });
+      } else {
+        toast.error(err.friendlyMessage || 'Something went wrong. Please try again.');
+      }
+    } finally {
+      removingRef.current = false;
+      setRemoving(false);
     }
   };
+
+  const dialog = removal ? removalDialog(removal) : null;
 
   return (
     <div className="space-y-6">
@@ -373,14 +565,17 @@ export default function AdminProducts() {
               {products.map((p) => {
                 const discount = discountPercent(p.mrp, p.price);
                 return (
-                  <li key={p._id} className="flex items-center gap-4 p-4">
+                  <li key={p._id} className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
                     <div className="h-16 w-12 shrink-0 overflow-hidden bg-paper-sunken">
                       {p.images?.[0]?.url && (
-                        <img src={p.images[0].url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                        <img
+                          src={p.images[0].url} alt="" loading="lazy"
+                          className="h-full w-full object-cover" style={framingStyle(p.images[0].framing)}
+                        />
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-[9rem] flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-medium">{p.name}</p>
                         <span className={`badge-${p.status === 'active' ? 'success' : p.status === 'draft' ? 'warning' : 'neutral'}`}>
@@ -400,15 +595,27 @@ export default function AdminProducts() {
                       </p>
                     </div>
 
-                    <div className="flex shrink-0 gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(p)}>
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-11" onClick={() => openEdit(p)}>
                         <Pencil size={13} aria-hidden="true" /> Edit
                       </Button>
                       {p.status !== 'archived' && (
-                        <Button size="sm" variant="quiet" onClick={() => setArchiving(p)} aria-label={`Archive ${p.name}`}>
-                          <Archive size={13} aria-hidden="true" />
+                        <Button
+                          size="sm" variant="quiet" className="h-11 w-11 px-0"
+                          onClick={() => setRemoval({ product: p, stage: 'archive' })}
+                          aria-label={`Remove ${p.name} from store`} title="Remove from store"
+                        >
+                          <Archive size={14} aria-hidden="true" />
                         </Button>
                       )}
+                      <Button
+                        size="sm" variant="quiet" className="h-11 min-w-11 px-3 hover:text-danger"
+                        onClick={() => setRemoval({ product: p, stage: 'delete' })}
+                        aria-label={`Delete ${p.name}`} title="Delete product"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </Button>
                     </div>
                   </li>
                 );
@@ -479,7 +686,7 @@ export default function AdminProducts() {
             </Select>
           </div>
 
-          <ImageManager images={form.images} onChange={(images) => setForm((f) => ({ ...f, images }))} />
+          <ImageManager images={form.images} onChange={setImages} />
 
           <VariantEditor variants={form.variants} onChange={(variants) => setForm((f) => ({ ...f, variants }))} />
 
@@ -497,17 +704,39 @@ export default function AdminProducts() {
             <Checkbox label="Featured on the homepage" checked={form.isFeatured} onChange={set('isFeatured')} />
             <Checkbox label="Show as a new arrival" checked={form.isNewArrival} onChange={set('isNewArrival')} />
           </div>
+
+          {editing && (
+            <section aria-labelledby="product-danger-zone" className="rounded-card border border-danger/25 p-4 sm:p-5">
+              <h3 id="product-danger-zone" className="font-sans text-sm font-medium text-danger">Danger zone</h3>
+              <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">Delete this product</p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-muted">
+                    Permanently remove this product from the catalogue. Products that are part of existing
+                    orders can be removed from the store instead.
+                  </p>
+                </div>
+                <Button
+                  type="button" variant="danger" className="shrink-0"
+                  onClick={() => setRemoval({ product: editing, stage: 'delete' })}
+                >
+                  <Trash2 size={15} aria-hidden="true" /> Delete product
+                </Button>
+              </div>
+            </section>
+          )}
         </form>
       </Modal>
 
       <ConfirmDialog
-        open={Boolean(archiving)}
-        onClose={() => setArchiving(null)}
-        onConfirm={archive}
-        title="Archive this product?"
-        message="It will be hidden from the store immediately. Existing orders keep their record, and you can restore it by setting the status back to active."
-        confirmLabel="Archive"
-        tone="danger"
+        open={Boolean(removal)}
+        onClose={closeRemoval}
+        onConfirm={confirmRemoval}
+        loading={removing}
+        title={dialog?.title}
+        message={dialog?.message}
+        confirmLabel={dialog?.confirmLabel}
+        tone={dialog?.tone}
       />
     </div>
   );

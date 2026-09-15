@@ -175,6 +175,16 @@ const uploadLimiter = build('upload', {
   message: 'Too many uploads. Please wait a few minutes and try again.',
 });
 
+/**
+ * Homepage product sections. Public and read-only, but one call runs a query
+ * per section, so it carries its own bound. A page load sends one request.
+ */
+const productSectionsLimiter = build('productSections', {
+  windowMs: 10 * 60 * 1000,
+  max: 300,
+  message: 'Too many requests. Please wait a moment and try again.',
+});
+
 /** Public write endpoints that email or persist unauthenticated input. */
 const publicWriteLimiter = build('publicWrite', {
   windowMs: 60 * 60 * 1000,
@@ -204,4 +214,5 @@ module.exports = {
   uploadLimiter,
   publicWriteLimiter,
   couponLimiter,
+  productSectionsLimiter,
 };

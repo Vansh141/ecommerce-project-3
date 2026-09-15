@@ -182,7 +182,7 @@ export default function Checkout() {
         amount: paymentOrder.amount,
         currency: paymentOrder.currency,
         order_id: paymentOrder.razorpayOrderId,
-        name: 'TOUCH',
+        name: 'TOUCHH',
         description: `Order ${paymentOrder.orderNumber}`,
         prefill: {
           name: selectedAddress?.fullName || user?.name,

@@ -1,85 +1,45 @@
-import { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Truck, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Eye } from 'lucide-react';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import { categoryApi } from '../../api/endpoints';
-import { useMediaQuery } from '../../hooks';
-import { FREE_SHIPPING_THRESHOLD, RETURN_WINDOW_DAYS } from '../../config/store';
-import { formatPrice } from '../../utils/format';
+import BottomNav from './BottomNav';
+import { categoryApi, paymentApi } from '../../api/endpoints';
+import { useAuth } from '../../context/AuthContext';
+import { usePublishedStorefront, useDraftStorefront } from '../../hooks/useStorefront';
+import { PageLoader } from '../ui';
+import { resolveStorefront } from '../../config/storefront';
+import AnnouncementBar from './AnnouncementBar';
 
 /**
- * Announcement bar.
- *
- * These three statements are configuration-backed facts, not marketing
- * invention: free shipping above the configured threshold, the published
- * returns window, and the fact that payment is handled by a verified gateway.
- * The two numbers come from `config/store`, which mirrors what the API
- * actually enforces, so the strip can never contradict the checkout.
- *
- * Layout: on a tablet and up all three sit on one line, evenly spaced and
- * separated by a hairline rule. Below that there is not enough width for three
- * legible items, so rather than shrink them or wrap onto a second line the
- * strip becomes a ticker showing one statement at a time — the bar keeps a
- * fixed height, nothing is truncated, and nothing is hidden from the customer.
+ * The cart has its own fixed checkout bar and checkout is a focused task, so
+ * on those routes the bottom of the screen belongs to them.
  */
-const ANNOUNCEMENTS = [
-  { icon: Truck, text: `Free shipping over ${formatPrice(FREE_SHIPPING_THRESHOLD)}` },
-  { icon: RotateCcw, text: `${RETURN_WINDOW_DAYS}-day returns` },
-  { icon: ShieldCheck, text: 'Secure checkout' },
-];
+const HIDE_BOTTOM_NAV = /^\/(cart|checkout)(\/|$)/;
 
-const TICKER_INTERVAL = 4000;
+/** The admin-only page that renders the homepage from the saved draft. */
+const PREVIEW_PATH = '/storefront-preview';
 
-function AnnouncementBar() {
-  const [index, setIndex] = useState(0);
-  const isCompact = useMediaQuery('(max-width: 639px)');
-  const { icon: CurrentIcon, text: currentText } = ANNOUNCEMENTS[index];
-
-  // The interval only exists while the ticker is the layout in use.
-  useEffect(() => {
-    if (!isCompact) return undefined;
-    const id = setInterval(
-      () => setIndex((i) => (i + 1) % ANNOUNCEMENTS.length),
-      TICKER_INTERVAL
-    );
-    return () => clearInterval(id);
-  }, [isCompact]);
-
+function PreviewBanner({ error }) {
   return (
-    <div className="border-b border-ink-soft/30 bg-ink text-paper">
-      <div className="shell">
-        {/* ── Phone: one statement at a time ── */}
-        <div className="relative flex h-9 items-center justify-center sm:hidden">
-          <p key={currentText} className="announce-item animate-fade-in" aria-hidden="true">
-            <CurrentIcon size={13} className="shrink-0 opacity-70" aria-hidden="true" />
-            {currentText}
-          </p>
-
-          {/* The rotation is decorative; assistive tech gets the full list once
-              rather than an announcement every four seconds. */}
-          <ul className="sr-only">
-            {ANNOUNCEMENTS.map(({ text }) => <li key={text}>{text}</li>)}
-          </ul>
-        </div>
-
-        {/* ── Tablet and up: all three, evenly spaced ── */}
-        <ul className="hidden h-10 items-center justify-center sm:flex">
-          {ANNOUNCEMENTS.map(({ icon: Icon, text }, i) => (
-            <li key={text} className="flex items-center">
-              {i > 0 && (
-                <span
-                  aria-hidden="true"
-                  className="mx-6 h-3 w-px bg-paper/25 lg:mx-10"
-                />
-              )}
-              <span className="announce-item">
-                <Icon size={13} className="shrink-0 opacity-70" aria-hidden="true" />
-                {text}
-              </span>
-            </li>
-          ))}
-        </ul>
+    <div role="status" className="border-b border-warning/30 bg-warning-faint text-warning">
+      <div className="shell flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-xs">
+        <p className="flex items-center gap-2 font-medium uppercase tracking-wide">
+          <Eye size={14} aria-hidden="true" />
+          {error
+            ? 'The preview isn’t available right now. Please go back to the editor and try again.'
+            : 'Preview — these changes are not live yet'}
+        </p>
+        <span className="flex flex-wrap items-center gap-x-5">
+          <Link to="/admin/storefront" className="inline-flex min-h-[44px] items-center underline underline-offset-4">
+            ← Back to Editor
+          </Link>
+          {!error && (
+            <Link to="/admin/storefront?publish=1" className="inline-flex min-h-[44px] items-center font-medium underline underline-offset-4">
+              Publish Changes
+            </Link>
+          )}
+        </span>
       </div>
     </div>
   );
@@ -94,21 +54,65 @@ function ScrollToTop() {
 }
 
 export default function StoreLayout() {
+  const { pathname } = useLocation();
+  const { isAdmin, initialising } = useAuth();
   const [categories, setCategories] = useState([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+  const [payments, setPayments] = useState(null);
 
-  // Fetched once at the layout level and shared with nav + footer, rather than
-  // each component issuing its own request.
+  // Fetched once at the layout level and shared with nav, footer and pages,
+  // rather than each component issuing its own request.
   useEffect(() => {
     let cancelled = false;
     categoryApi
       .list()
       .then((data) => { if (!cancelled) setCategories(data.categories || []); })
-      .catch(() => { if (!cancelled) setCategories([]); });
+      .catch(() => { if (!cancelled) setCategories([]); })
+      .finally(() => { if (!cancelled) setCategoriesLoaded(true); });
     return () => { cancelled = true; };
   }, []);
 
+  // Public payments config — the only source for what the storefront says
+  // about cash on delivery. A failure simply means COD is not mentioned.
+  useEffect(() => {
+    let cancelled = false;
+    paymentApi
+      .config()
+      .then((data) => { if (!cancelled) setPayments(data || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Storefront content: one cached request for the published version, or the
+  // saved draft on the admin preview page once an admin session is confirmed.
+  const isPreview = pathname === PREVIEW_PATH;
+  const published = usePublishedStorefront({ skip: isPreview });
+  const draft = useDraftStorefront(isPreview && !initialising && isAdmin);
+  const source = isPreview ? draft : published;
+
+  const storefront = useMemo(
+    () => ({
+      status: source.status,
+      content: resolveStorefront(source.content, { payments }),
+      preview: isPreview,
+      error: source.error || null,
+    }),
+    [source.status, source.content, source.error, payments, isPreview]
+  );
+
+  const showBottomNav = !HIDE_BOTTOM_NAV.test(pathname);
+
+  // Toasts are rendered outside this layout, so they learn about the bottom
+  // navigation from an attribute on <html> and lift themselves above it.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (showBottomNav) root.dataset.bottomNav = '';
+    else delete root.dataset.bottomNav;
+    return () => { delete root.dataset.bottomNav; };
+  }, [showBottomNav]);
+
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className={`flex min-h-screen flex-col ${showBottomNav ? 'pb-bottom-nav' : ''}`}>
       <ScrollToTop />
 
       <a
@@ -119,14 +123,25 @@ export default function StoreLayout() {
         Skip to content
       </a>
 
-      <AnnouncementBar />
+      {isPreview && isAdmin && <PreviewBanner error={storefront.error} />}
+
+      <AnnouncementBar
+        announcement={storefront.content.announcement}
+        payments={payments}
+        loading={storefront.status === 'loading'}
+      />
       <Navbar categories={categories} />
 
       <main id="main" className="flex-1">
-        <Outlet context={{ categories }} />
+        {/* Keeps the header and footer on screen while a page's code loads. */}
+        <Suspense fallback={<PageLoader />}>
+          <Outlet context={{ categories, categoriesLoaded, payments, storefront }} />
+        </Suspense>
       </main>
 
       <Footer categories={categories} />
+
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }

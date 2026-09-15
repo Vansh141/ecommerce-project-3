@@ -9,6 +9,13 @@ const { detectImage } = require('../utils/imageValidation');
 
 const MAX_DIMENSION = 1600;
 const THUMB_DIMENSION = 600;
+/**
+ * Homepage builder artwork only. A full-width banner is designed at 1920px or
+ * more, so storefront uploads may keep up to this many pixels on the long
+ * edge. Everything else about validation and re-encoding is identical, and no
+ * caller can ask for more than this.
+ */
+const STOREFRONT_MAX_DIMENSION = 2560;
 const LOCAL_UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 let cloudinary = null;
@@ -142,9 +149,10 @@ async function uploadToLocalDisk(processed) {
 }
 
 /** Validates, re-encodes and stores an image. Returns a persistable descriptor. */
-async function storeImage(buffer, { folder = config.cloudinary.folder, thumbnail = false } = {}) {
+async function storeImage(buffer, { folder = config.cloudinary.folder, thumbnail = false, maxDimension = MAX_DIMENSION } = {}) {
+  const ceiling = Math.min(Math.max(Number(maxDimension) || MAX_DIMENSION, 1), STOREFRONT_MAX_DIMENSION);
   const processed = await processImage(buffer, {
-    maxDimension: thumbnail ? THUMB_DIMENSION : MAX_DIMENSION,
+    maxDimension: thumbnail ? THUMB_DIMENSION : ceiling,
   });
 
   const result = cloudinary
@@ -179,4 +187,6 @@ module.exports = {
   processImage,
   isCloudStorage: () => Boolean(cloudinary),
   LOCAL_UPLOAD_DIR,
+  MAX_DIMENSION,
+  STOREFRONT_MAX_DIMENSION,
 };

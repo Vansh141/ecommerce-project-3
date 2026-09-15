@@ -225,7 +225,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const resend = {
   apiKey: str('RESEND_API_KEY'),
   fromEmail: str('RESEND_FROM_EMAIL'),
-  fromName: str('MAIL_FROM_NAME', { fallback: 'TOUCH' }),
+  fromName: str('MAIL_FROM_NAME', { fallback: 'TOUCHH' }),
   /** Where contact-form enquiries land. Defaults to the sending address. */
   notifyEmail: str('CONTACT_NOTIFY_EMAIL'),
 };
@@ -274,7 +274,7 @@ if (isProduction && !cloudinary.enabled) {
 
 // ── Storefront commerce settings ─────────────────────────────────────────────
 const store = {
-  name: str('STORE_NAME', { fallback: 'TOUCH' }),
+  name: str('STORE_NAME', { fallback: 'TOUCHH' }),
   currency: str('STORE_CURRENCY', { fallback: 'INR' }),
   // Amounts are in the store's major currency unit (rupees).
   freeShippingThreshold: float('FREE_SHIPPING_THRESHOLD', { fallback: 1499, min: 0 }),

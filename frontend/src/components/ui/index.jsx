@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useId, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, X, AlertCircle, Inbox, ChevronRight } from 'lucide-react';
+import { Loader2, X, AlertCircle, Inbox, ChevronRight, Star } from 'lucide-react';
 
 /* ══════════════════════════════ Button ═══════════════════════════════════ */
 
@@ -10,6 +10,8 @@ const VARIANTS = {
   ghost: 'btn-ghost',
   quiet: 'btn-quiet',
   danger: 'btn-danger',
+  light: 'btn-light',
+  'outline-light': 'btn-outline-light',
 };
 const SIZES = { sm: 'btn-sm', md: 'btn-md', lg: 'btn-lg' };
 
@@ -387,15 +389,51 @@ export function Badge({ tone = 'neutral', children, className = '' }) {
   return <span className={`badge-${tone} ${className}`}>{children}</span>;
 }
 
-export function SectionHeading({ eyebrow, title, action, className = '' }) {
+/**
+ * Section heading: optional eyebrow, a serif title and, beside it on wider
+ * screens, a short description separated by a hairline. `size="md"` is the
+ * compact heading used between product sections on the homepage.
+ */
+export function SectionHeading({
+  eyebrow, title, description, action, id, size = 'lg', className = '',
+}) {
   return (
-    <div className={`mb-6 flex items-end justify-between gap-4 sm:mb-8 sm:gap-6 ${className}`}>
+    <div className={`mb-4 flex items-end justify-between gap-4 sm:mb-6 sm:gap-6 ${className}`}>
       <div className="min-w-0">
         {eyebrow && <p className="eyebrow mb-2">{eyebrow}</p>}
-        <h2 className="text-display-2">{title}</h2>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h2 id={id} className={size === 'md' ? 'text-display-3' : 'text-display-2'}>{title}</h2>
+          {/* On phones the heading stands alone beside its action. */}
+          {description && (
+            <>
+              <span aria-hidden="true" className="hidden h-px w-8 self-center bg-line-strong sm:block" />
+              <p className="hidden text-sm text-ink-muted sm:block">{description}</p>
+            </>
+          )}
+        </div>
       </div>
-      {action}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
+  );
+}
+
+/** Read-only star rating. Render it only when a product has real reviews. */
+export function Stars({ value = 0, size = 12, className = '' }) {
+  return (
+    <span
+      role="img"
+      aria-label={`Rated ${Number(value).toFixed(1)} out of 5`}
+      className={`inline-flex items-center gap-px ${className}`}
+    >
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          size={size}
+          aria-hidden="true"
+          className={i <= Math.round(value) ? 'fill-clay-deep text-clay-deep' : 'text-line-strong'}
+        />
+      ))}
+    </span>
   );
 }
 

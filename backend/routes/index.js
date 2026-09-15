@@ -17,6 +17,7 @@ const reviewController = require('../controllers/reviewController');
 const uploadController = require('../controllers/uploadController');
 const contactController = require('../controllers/contactController');
 const adminController = require('../controllers/adminController');
+const storefrontController = require('../controllers/storefrontController');
 
 const router = express.Router();
 
@@ -79,6 +80,8 @@ const products = express.Router();
 products.get('/', optionalAuth, v.productListRules, validate, productController.listProducts);
 products.get('/facets', productController.getFacets);
 products.get('/collections/home', productController.getHomeCollections);
+// Homepage product sections — public, read-only, one request for the page.
+products.post('/sections', limiters.productSectionsLimiter, v.productSectionsRules, validate, productController.getProductSections);
 
 products.post('/', protect, requireAdmin, v.createProductRules, validate, productController.createProduct);
 products.put('/:id', protect, requireAdmin, v.updateProductRules, validate, productController.updateProduct);
@@ -156,6 +159,8 @@ upload.use(protect, requireAdmin, limiters.uploadLimiter);
 
 upload.post('/', uploadSingleImage, uploadController.uploadImage);
 upload.post('/multiple', uploadMultipleImages, uploadController.uploadImages);
+// Homepage builder artwork: identical validation, higher resolution ceiling.
+upload.post('/storefront', uploadSingleImage, uploadController.uploadStorefrontImage);
 
 router.use('/upload', upload);
 
@@ -172,6 +177,14 @@ contact.get('/subscribers', protect, requireAdmin, contactController.listSubscri
 
 router.use('/contact', contact);
 
+/* ══════════════════════════ STOREFRONT ════════════════════════════════════ */
+// Public: published homepage content only. Editing lives under /admin below.
+const storefront = express.Router();
+
+storefront.get('/', storefrontController.getPublishedStorefront);
+
+router.use('/storefront', storefront);
+
 /* ══════════════════════════ ADMIN ═════════════════════════════════════════ */
 const admin = express.Router();
 admin.use(protect, requireAdmin); // blanket guard — no admin route can be reached without it
@@ -182,6 +195,14 @@ admin.get('/customers', adminController.listCustomers);
 admin.get('/customers/:id', v.objectIdParam('id'), validate, adminController.getCustomer);
 admin.patch('/customers/:id/role', v.objectIdParam('id'), validate, adminController.updateCustomerRole);
 admin.patch('/customers/:id/status', v.objectIdParam('id'), validate, adminController.updateCustomerStatus);
+
+// Storefront content. Images are uploaded through /api/upload like products;
+// the content document stores only the resulting URL and storage id.
+admin.get('/storefront', storefrontController.getAdminStorefront);
+admin.put('/storefront/draft', storefrontController.saveDraft);
+admin.post('/storefront/publish', storefrontController.publish);
+admin.post('/storefront/discard', storefrontController.discardDraft);
+admin.post('/storefront/restore', storefrontController.restorePrevious);
 
 router.use('/admin', admin);
 

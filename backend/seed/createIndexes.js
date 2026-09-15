@@ -18,6 +18,7 @@ const MODELS = [
   require('../models/Subscriber'),
   require('../models/ContactMessage'),
   require('../models/Counter'),
+  require('../models/StorefrontContent'),
 ];
 
 function log(msg) {

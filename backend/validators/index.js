@@ -78,9 +78,19 @@ const imagesRule = body('images')
       if (!/^(https?:\/\/|\/uploads\/)/i.test(img.url)) {
         throw new Error('Image URLs must be absolute or point at the uploads directory.');
       }
+      if (img.framing !== undefined && img.framing !== null && !isValidFraming(img.framing)) {
+        throw new Error('Image framing is not valid.');
+      }
     }
     return true;
   });
+
+const inRange = (n, min, max) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
+
+function isValidFraming(framing) {
+  if (typeof framing !== 'object' || Array.isArray(framing)) return false;
+  return inRange(framing.x, 0, 100) && inRange(framing.y, 0, 100) && inRange(framing.zoom, 1, 3);
+}
 
 const createProductRules = [
   safeText('name', { min: 2, max: 160, fieldLabel: 'Product name' }),
@@ -114,6 +124,42 @@ const stockRules = [
   objectIdParam('id'),
   objectIdParam('variantId'),
   body('stock').isInt({ min: 0, max: 1_000_000 }).withMessage('Stock must be a whole number of 0 or more.').toInt(),
+];
+
+// ── Homepage product sections ────────────────────────────────────────────────
+const OBJECT_ID = /^[a-f0-9]{24}$/i;
+const PRODUCT_SECTION_SOURCES = ['newArrivals', 'onSale', 'featured', 'popular', 'newest', 'category', 'manual'];
+
+const productSectionsRules = [
+  body('sections')
+    .isArray({ min: 1, max: 12 })
+    .withMessage('Between 1 and 12 product sections can be requested.')
+    .bail()
+    .custom((sections) => {
+      const ids = new Set();
+      for (const s of sections) {
+        if (!s || typeof s !== 'object' || Array.isArray(s)) throw new Error('Malformed product section.');
+        if (typeof s.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(s.id) || ids.has(s.id)) {
+          throw new Error('Each product section needs a unique id.');
+        }
+        ids.add(s.id);
+        if (!PRODUCT_SECTION_SOURCES.includes(s.source)) throw new Error('Unsupported product source.');
+        if (s.limit !== undefined && (!Number.isInteger(s.limit) || s.limit < 1 || s.limit > 24)) {
+          throw new Error('The product limit must be a whole number from 1 to 24.');
+        }
+        if (s.source === 'category' && !(typeof s.category === 'string' && OBJECT_ID.test(s.category))) {
+          throw new Error('A category section needs a valid category.');
+        }
+        if (s.source === 'manual' && (!Array.isArray(s.products) || s.products.length > 24
+          || s.products.some((id) => !(typeof id === 'string' && OBJECT_ID.test(id))))) {
+          throw new Error('A hand-picked section needs up to 24 valid product ids.');
+        }
+        if (s.fallbackToNewest !== undefined && typeof s.fallbackToNewest !== 'boolean') {
+          throw new Error('fallbackToNewest must be true or false.');
+        }
+      }
+      return true;
+    }),
 ];
 
 // ── Categories ───────────────────────────────────────────────────────────────
@@ -271,6 +317,7 @@ module.exports = {
   createProductRules,
   updateProductRules,
   stockRules,
+  productSectionsRules,
   createCategoryRules,
   updateCategoryRules,
   previewOrderRules,

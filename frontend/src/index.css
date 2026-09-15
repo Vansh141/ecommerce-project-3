@@ -1,12 +1,84 @@
-@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Fonts are loaded by a <link> in index.html, next to the preconnects, so the
+   browser discovers them with the HTML instead of after this stylesheet. */
+
 @layer base {
+  /* ── Palette ────────────────────────────────────────────────────────────
+     RGB channels consumed by tailwind.config.js. Storefront: warm ivory
+     grounds, charcoal ink, taupe and terracotta accents. Every text token is
+     at least 4.5:1 on every ground it is used on. */
   :root {
-    --header-h: 4rem;
+    --paper: 251 248 243;         /* #FBF8F3 ivory */
+    --paper-raised: 255 253 250;  /* #FFFDFA */
+    --paper-sunken: 243 236 226;  /* #F3ECE2 sand */
+    --line: 230 221 208;          /* #E6DDD0 */
+    --line-strong: 211 198 180;   /* #D3C6B4 */
+    --ink: 31 26 23;              /* #1F1A17 charcoal */
+    --ink-soft: 70 61 54;         /* #463D36 */
+    --ink-muted: 106 94 84;       /* #6A5E54 */
+    --ink-faint: 116 104 93;      /* #74685D */
+    --clay: 168 132 104;          /* #A88468 taupe — decoration only */
+    --clay-soft: 201 175 150;     /* #C9AF96 */
+    --clay-faint: 242 231 220;    /* #F2E7DC */
+    --clay-deep: 125 82 56;       /* #7D5238 terracotta — safe for text */
+    --success: 70 110 82;
+    --success-faint: 233 241 234;
+    --warning: 138 94 38;
+    --warning-faint: 251 241 226;
+    --danger: 154 63 47;
+    --danger-faint: 250 235 233;
+    --info: 74 99 118;
+    --info-faint: 234 240 244;
+
+    /* Height of the sticky header, used for sticky offsets below it. */
+    --header-h: 3.5rem;
+    /* Height of the mobile bottom navigation, before the safe-area inset. */
+    --bottom-nav-h: 3.5rem;
+    /* Page gutter, matching .shell. Edge-to-edge rails bleed by exactly this. */
+    --gutter: 1.25rem;
+
+    /* Keyboard focus ring colour; admin keeps its original taupe ring. */
+    --focus-ring: var(--ink);
+  }
+
+  @media (min-width: 640px) {
+    :root { --gutter: 2rem; }
+  }
+
+  @media (min-width: 1024px) {
+    :root { --header-h: 4.5rem; --gutter: 3rem; }
+  }
+
+  /* The admin panel keeps its established palette. The :has() form applies it
+     to the whole document while admin is mounted, so toasts and overlays
+     rendered outside the admin layout match it too. */
+  .theme-admin,
+  :root:has(.theme-admin) {
+    --focus-ring: var(--clay);
+    --paper: 250 248 245;
+    --paper-raised: 255 255 255;
+    --paper-sunken: 243 239 234;
+    --line: 231 225 217;
+    --line-strong: 214 206 195;
+    --ink: 28 25 23;
+    --ink-soft: 68 64 60;
+    --ink-muted: 120 113 108;
+    --ink-faint: 168 162 158;
+    --clay: 176 141 116;
+    --clay-soft: 201 171 150;
+    --clay-faint: 239 228 219;
+    --clay-deep: 141 110 88;
+    --success: 79 122 91;
+    --success-faint: 233 241 234;
+    --warning: 154 107 47;
+    --warning-faint: 251 241 226;
+    --danger: 163 69 59;
+    --danger-faint: 250 235 233;
+    --info: 74 99 118;
+    --info-faint: 234 240 244;
   }
 
   * {
@@ -48,13 +120,15 @@
   }
 
   /* A single, consistent focus treatment. Visible for keyboard users,
-     suppressed for mouse clicks — accessibility without visual noise. */
+     suppressed for mouse clicks. Charcoal, so it holds well over 3:1 on every
+     ground in the palette. */
   :focus-visible {
-    @apply outline-none ring-2 ring-clay ring-offset-2 ring-offset-paper;
+    @apply outline-none ring-2 ring-offset-2 ring-offset-paper;
+    --tw-ring-color: rgb(var(--focus-ring));
   }
 
   ::selection {
-    @apply bg-clay/20 text-ink;
+    @apply bg-clay/25 text-ink;
   }
 
   input[type='number']::-webkit-outer-spin-button,
@@ -80,9 +154,31 @@
     @apply mx-auto w-full max-w-site px-5 sm:px-8 lg:px-12;
   }
 
+  /* Extends a horizontal scroller to the screen edges while its first item
+     still lines up with the page gutter. */
+  .bleed {
+    --rail-pad: var(--gutter);
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+  }
+
+  /* Horizontal, swipeable rail. Layout (flex or grid) is set where it is used. */
+  .rail {
+    @apply no-scrollbar overflow-x-auto overscroll-x-contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--rail-pad, 0px);
+  }
+
   /* ── Eyebrow / section heading ─────────────────────────────────────── */
   .eyebrow {
     @apply text-2xs font-medium uppercase tracking-luxe text-ink-muted;
+  }
+  .eyebrow-rule {
+    @apply flex items-center gap-3 text-2xs font-medium uppercase tracking-luxe text-ink-muted;
+  }
+  .eyebrow-rule::before {
+    content: '';
+    @apply h-px w-6 shrink-0 bg-clay;
   }
 
   /* ── Buttons ───────────────────────────────────────────────────────── */
@@ -110,20 +206,41 @@
   .btn-danger {
     @apply btn bg-danger text-white hover:bg-danger/90;
   }
+  /* For dark editorial grounds. */
+  .btn-light {
+    @apply btn bg-paper text-ink hover:bg-paper-sunken;
+  }
+  .btn-outline-light {
+    @apply btn border border-paper/60 bg-transparent text-paper hover:border-paper hover:bg-paper hover:text-ink;
+  }
+  /* Editorial calls to action are pills; transactional buttons stay crisp. */
+  .btn-pill { @apply rounded-full; }
+
+  /* Text link with a trailing arrow that nudges on hover. */
+  .link-arrow {
+    @apply inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink-soft
+           transition-colors duration-200 hover:text-ink;
+  }
+  .link-arrow svg {
+    @apply transition-transform duration-300 ease-luxe;
+  }
+  .link-arrow:hover svg {
+    transform: translateX(3px);
+  }
 
   /* ── Form controls ─────────────────────────────────────────────────── */
   .field-label {
     @apply mb-1.5 block text-2xs font-medium uppercase tracking-wider2 text-ink-muted;
   }
   .field {
-    @apply block w-full rounded-control border border-line bg-paper-raised px-3.5 py-3
+    @apply block w-full rounded-control border border-line-strong bg-paper-raised px-3.5 py-3
            text-sm text-ink placeholder:text-ink-faint
            transition-colors duration-200
-           focus:border-ink focus:outline-none focus:ring-0
+           focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink
            disabled:bg-paper-sunken disabled:text-ink-faint;
   }
   .field-error {
-    @apply border-danger focus:border-danger;
+    @apply border-danger focus:border-danger focus:ring-danger;
   }
   .field-hint {
     @apply mt-1.5 text-xs text-ink-muted;
@@ -144,26 +261,54 @@
            text-2xs font-medium uppercase tracking-wider2;
   }
   .badge-neutral { @apply badge bg-paper-sunken text-ink-soft; }
-  .badge-sale    { @apply badge bg-danger text-white; }
+  .badge-sale    { @apply badge bg-rust text-white; }
   .badge-new     { @apply badge bg-ink text-paper; }
   .badge-success { @apply badge bg-success-faint text-success; }
   .badge-warning { @apply badge bg-warning-faint text-warning; }
   .badge-danger  { @apply badge bg-danger-faint text-danger; }
   .badge-info    { @apply badge bg-info-faint text-info; }
 
+  /* Product-card tags: quieter than status badges, sentence case. */
+  .tag {
+    @apply inline-flex items-center rounded-control px-2 py-[0.3125rem] text-[0.6875rem]
+           font-medium leading-none tabular-nums;
+  }
+  .tag-sale    { @apply tag bg-rust text-white; }
+  .tag-new     { @apply tag bg-ink text-paper; }
+  .tag-soldout { @apply tag bg-paper-raised/95 text-ink; }
+
   /* ── Links ─────────────────────────────────────────────────────────── */
   .link {
-    @apply text-ink underline decoration-line underline-offset-4
+    @apply text-ink underline decoration-line-strong underline-offset-4
            transition-colors hover:decoration-ink;
+  }
+
+  /* Admin keeps its original, quieter controls: a light field border with no
+     focus ring, and a light link underline. */
+  .theme-admin .field {
+    @apply border-line;
+  }
+  .theme-admin .field:focus {
+    @apply border-ink ring-0;
+  }
+  .theme-admin .field-error,
+  .theme-admin .field-error:focus {
+    @apply border-danger;
+  }
+  .theme-admin .link {
+    @apply decoration-line;
+  }
+  .theme-admin .link:hover {
+    @apply decoration-ink;
   }
 
   /* Animated underline used across the nav. */
   /* The vertical padding is deliberate: without it the clickable area is only
-     the 16px cap height of the text, which is a poor target even with a mouse.
+     the cap height of the text, which is a poor target even with a mouse.
      It does not change the row height, which is set by the nav itself. */
   .nav-link {
-    @apply relative block whitespace-nowrap py-3 text-xs font-medium uppercase
-           tracking-wider2 text-ink-soft transition-colors duration-200 hover:text-ink;
+    @apply relative block whitespace-nowrap py-3 text-[0.6875rem] font-medium uppercase
+           tracking-[0.12em] text-ink-soft transition-colors duration-200 hover:text-ink;
   }
   .nav-link::after {
     content: '';
@@ -174,6 +319,9 @@
     @apply w-full;
   }
   .nav-link[data-active='true'] { @apply text-ink; }
+  .nav-link-sale { @apply text-rust hover:text-rust; }
+  .nav-link-sale::after { @apply bg-rust; }
+  .nav-link-sale[data-active='true'] { @apply text-rust; }
 
 
   /* ── Icon-only controls ────────────────────────────────────────────────
@@ -206,10 +354,42 @@
 
   /* ── Announcement strip ────────────────────────────────────────────────
      Items sit on one optical baseline: the icon box and the text box are the
-     same height, so nothing shifts by a pixel between the three entries. */
+     same height, so nothing shifts by a pixel between entries. */
+  /* ── Top message: the moving strip ─────────────────────────────────── */
+  /* Two identical halves move by exactly one half, so the loop has no seam.
+     The edges fade instead of cutting words off, and only the strip moves. */
+  .marquee {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+    contain: paint;
+  }
+
+  .marquee-track {
+    animation: marquee var(--marquee-duration, 40s) linear infinite;
+    will-change: transform;
+  }
+
+  .marquee-ltr {
+    animation-direction: reverse;
+  }
+
+  .marquee:hover .marquee-track,
+  .marquee:focus-within .marquee-track {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track { animation: none; }
+  }
+
   .announce-item {
     @apply flex items-center justify-center gap-2 whitespace-nowrap text-[0.6875rem]
-           font-medium uppercase leading-none tracking-wider2 text-paper/90;
+           font-medium uppercase leading-none tracking-[0.14em] text-paper/85;
   }
 
   /* ── Vertical rhythm ───────────────────────────────────────────────────
@@ -225,7 +405,47 @@
   .skeleton::after {
     content: '';
     @apply absolute inset-0 -translate-x-full animate-shimmer
-           bg-gradient-to-r from-transparent via-white/60 to-transparent;
+           bg-gradient-to-r from-transparent via-paper-raised/60 to-transparent;
+  }
+
+  /* ── Editorial image slot ──────────────────────────────────────────────
+     Shown where editorial photography has not been supplied yet: a sand
+     ground with a fine diagonal weave, so the composition holds without
+     inventing an image. */
+  .editorial-slot {
+    @apply relative h-full w-full overflow-hidden bg-paper-sunken;
+    background-image: repeating-linear-gradient(
+      135deg,
+      rgb(var(--line) / 0.7) 0,
+      rgb(var(--line) / 0.7) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  }
+
+  /* ── Toasts ────────────────────────────────────────────────────────────
+     Anchored to the bottom of the screen, and lifted above the mobile
+     bottom navigation while it is visible so a confirmation never covers it.
+     Whichever layer sits lowest owns the safe-area inset, exactly once. */
+  .toast-region {
+    bottom: 0;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  @media (min-width: 640px) {
+    .toast-region { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+  }
+  @media (max-width: 1023.98px) {
+    html[data-bottom-nav] .toast-region {
+      bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));
+      padding-bottom: 0.75rem;
+    }
+  }
+
+  /* ── Mobile bottom navigation ────────────────────────────────────────── */
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   /* Hides scrollbars on horizontal rails while keeping them scrollable. */
@@ -243,7 +463,23 @@
   .text-display-1 { font-size: clamp(2.125rem, 1.35rem + 3.6vw, 3.75rem); line-height: 1.06; }
   .text-display-2 { font-size: clamp(1.75rem, 1.3rem + 2.1vw, 2.75rem); line-height: 1.12; }
   .text-display-3 { font-size: clamp(1.375rem, 1.15rem + 1.05vw, 1.875rem); line-height: 1.2; }
+  /* Sized for a compact hero: large enough to lead, small enough that the
+     products stay in the first screen. */
+  .text-display-hero {
+    font-size: clamp(1.5rem, 0.9rem + 2.4vw, 2.75rem);
+    line-height: 1.08;
+    letter-spacing: -0.005em;
+  }
+
+  /* Sticky elements that sit below the sticky header. */
+  .top-sticky { top: calc(var(--header-h) + 1.5rem); }
 
   /* Keeps a fixed bottom bar clear of the iOS home indicator. */
   .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+
+  /* Reserves room under the page for the mobile bottom navigation. */
+  .pb-bottom-nav { padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom)); }
+  @media (min-width: 1024px) {
+    .pb-bottom-nav { padding-bottom: 0; }
+  }
 }

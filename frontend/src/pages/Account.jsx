@@ -352,7 +352,7 @@ export function Wishlist() {
           <p className="mb-8 text-sm text-ink-muted">
             {items.length} saved {items.length === 1 ? 'piece' : 'pieces'}
           </p>
-          <ProductGrid products={items} />
+          <ProductGrid products={items} columns="wide" />
         </>
       )}
     </div>

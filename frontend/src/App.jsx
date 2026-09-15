@@ -8,6 +8,7 @@ import { ToastProvider } from './context/ToastContext';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import StoreLayout from './components/layout/StoreLayout';
+import AuthLayout from './components/layout/AuthLayout';
 import { RequireAuth, RequireAdmin, RedirectIfAuthed } from './components/layout/Guards';
 import { PageLoader } from './components/ui';
 
@@ -55,6 +56,7 @@ const AdminInventory = pick(() => import('./pages/admin'), 'AdminInventory');
 const AdminOrders = pick(() => import('./pages/admin'), 'AdminOrders');
 const AdminCustomers = pick(() => import('./pages/admin'), 'AdminCustomers');
 const AdminCoupons = pick(() => import('./pages/admin'), 'AdminCoupons');
+const AdminStorefront = pick(() => import('./pages/admin'), 'AdminStorefront');
 
 export default function App() {
   return (
@@ -74,15 +76,6 @@ export default function App() {
                       <Route path="cart" element={<Cart />} />
                       <Route path="wishlist" element={<Wishlist />} />
 
-                      {/* Auth — signed-in users are bounced away from these */}
-                      <Route path="login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
-                      <Route path="register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
-                      <Route path="forgot-password" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
-                      <Route path="reset-password/:token" element={<ResetPassword />} />
-                      {/* The link in the welcome email. Open to everyone: a signed-in
-                          shopper verifies here too. */}
-                      <Route path="verify-email/:token" element={<VerifyEmail />} />
-
                       {/* Customer-only */}
                       <Route path="checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
                       <Route path="orders" element={<RequireAuth><OrderHistory /></RequireAuth>} />
@@ -94,6 +87,10 @@ export default function App() {
                         <Route path="addresses" element={<Addresses />} />
                       </Route>
 
+                      {/* Admin-only: the homepage rendered from the saved draft. The
+                          content behind it comes from an admin-only endpoint. */}
+                      <Route path="storefront-preview" element={<RequireAdmin><Home /></RequireAdmin>} />
+
                       {/* Content */}
                       <Route path="about" element={<About />} />
                       <Route path="contact" element={<Contact />} />
@@ -102,6 +99,18 @@ export default function App() {
                       <Route path="terms" element={<Terms />} />
 
                       <Route path="*" element={<NotFound />} />
+                    </Route>
+
+                    {/* ── Sign in and account pages: their own focused frame ── */}
+                    <Route element={<AuthLayout />}>
+                      {/* Signed-in users are bounced away from these */}
+                      <Route path="login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+                      <Route path="register" element={<RedirectIfAuthed><Register /></RedirectIfAuthed>} />
+                      <Route path="forgot-password" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
+                      <Route path="reset-password/:token" element={<ResetPassword />} />
+                      {/* The link in the welcome email. Open to everyone: a signed-in
+                          shopper verifies here too. */}
+                      <Route path="verify-email/:token" element={<VerifyEmail />} />
                     </Route>
 
                     {/* ── Admin ── */}
@@ -113,6 +122,7 @@ export default function App() {
                       <Route path="orders" element={<AdminOrders />} />
                       <Route path="customers" element={<AdminCustomers />} />
                       <Route path="coupons" element={<AdminCoupons />} />
+                      <Route path="storefront" element={<AdminStorefront />} />
                     </Route>
                   </Routes>
                 </Suspense>

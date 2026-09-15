@@ -314,7 +314,7 @@ export function OrderDetail() {
 
         {/* ── Summary ── */}
         <div>
-          <div className="card-pad lg:sticky lg:top-32">
+          <div className="card-pad lg:sticky lg:top-sticky">
             <h2 className="mb-5 text-sm font-medium">Summary</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">

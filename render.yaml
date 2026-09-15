@@ -73,11 +73,11 @@ services:
       - key: RESEND_FROM_EMAIL
         sync: false            # must be on a domain verified in Resend
       - key: MAIL_FROM_NAME
-        value: TOUCH
+        value: TOUCHH
 
       # ── Storefront settings (safe to commit — business config, not secrets) ──
       - key: STORE_NAME
-        value: TOUCH
+        value: TOUCHH
       - key: STORE_CURRENCY
         value: INR
       - key: FREE_SHIPPING_THRESHOLD

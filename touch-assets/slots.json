@@ -1,0 +1,12 @@
+{
+  "hero-portrait": {
+    "sources": ["hero-banner"],
+    "region": { "left": 0.419, "top": 0, "width": 0.384, "height": 1 },
+    "widths": [270, 405, 540]
+  },
+  "hero-detail": { "region": { "left": 0.37, "top": 0.33, "width": 0.28, "height": 0.4 } },
+  "story": {
+    "sources": ["hero-banner"],
+    "region": { "left": 0.419, "top": 0, "width": 0.384, "height": 1 }
+  }
+}

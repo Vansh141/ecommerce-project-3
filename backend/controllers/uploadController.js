@@ -38,4 +38,22 @@ const uploadImages = asyncHandler(async (req, res) => {
   return sendCreated(res, { images });
 });
 
-module.exports = { uploadImage, uploadImages };
+// ── POST /api/upload/storefront ──────────────────────────────────────────────
+/**
+ * Homepage builder artwork — full-width hero banners, editorial and campaign
+ * images. The same checks and re-encoding as every other upload; only the
+ * resolution ceiling is higher (2560px), so a 1920px banner stays sharp.
+ * Product images keep the standard 1600px ceiling through POST /api/upload.
+ */
+const uploadStorefrontImage = asyncHandler(async (req, res) => {
+  if (!req.file || !req.file.buffer) {
+    throw ApiError.badRequest('No image was uploaded.');
+  }
+
+  const image = await storageService.storeImage(req.file.buffer, {
+    maxDimension: storageService.STOREFRONT_MAX_DIMENSION,
+  });
+  return sendCreated(res, { image });
+});
+
+module.exports = { uploadImage, uploadImages, uploadStorefrontImage };
