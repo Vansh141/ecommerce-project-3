@@ -109,7 +109,31 @@ async function uploadToCloudinary(processed, folder) {
   });
 }
 
+/**
+ * The origin locally stored images are served from, or `null` when no working
+ * URL can be formed.
+ *
+ * The storefront and admin run on another origin than the API, so a bare
+ * `/uploads/...` path would load from the storefront and come back as its HTML
+ * page — a broken image. Production therefore needs Cloudinary or an explicit
+ * API_PUBLIC_URL; development falls back to the local API server.
+ */
+function localUploadBase({ apiPublicUrl, isProduction, port }) {
+  if (apiPublicUrl) return apiPublicUrl.replace(/\/$/, '');
+  return isProduction ? null : `http://localhost:${port}`;
+}
+
 async function uploadToLocalDisk(processed) {
+  const base = localUploadBase(config);
+  if (base === null) {
+    // Refuse rather than store a file behind a URL that cannot load.
+    logger.error('Image upload refused: Cloudinary is not configured and API_PUBLIC_URL is not set.');
+    throw ApiError.serviceUnavailable(
+      'Image uploads are not set up on this server yet. Add the Cloudinary keys (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) to the API service, then upload again.',
+      { code: 'STORAGE_NOT_CONFIGURED' }
+    );
+  }
+
   await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
 
   // The filename is generated entirely server-side from random bytes — no part
@@ -124,21 +148,6 @@ async function uploadToLocalDisk(processed) {
   }
 
   await fs.writeFile(destination, processed.buffer);
-
-  // The storefront usually runs on a different origin than the API, so a bare
-  // `/uploads/...` path would resolve against the storefront and 404. Prefer an
-  // explicitly configured public API origin; fall back to the dev server.
-  const base = config.apiPublicUrl
-    ? config.apiPublicUrl.replace(/\/$/, '')
-    : config.isProduction
-      ? ''
-      : `http://localhost:${config.port}`;
-
-  if (config.isProduction && !base) {
-    logger.warn(
-      'Storing an upload on local disk with no API_PUBLIC_URL set. The image URL will be relative and will not load from a storefront on another origin. Configure Cloudinary, or set API_PUBLIC_URL.'
-    );
-  }
 
   return {
     url: `${base}/uploads/${filename}`,
@@ -183,6 +192,7 @@ async function deleteImage(publicId) {
 
 module.exports = {
   storeImage,
+  localUploadBase,
   deleteImage,
   processImage,
   isCloudStorage: () => Boolean(cloudinary),
