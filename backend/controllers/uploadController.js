@@ -12,13 +12,16 @@ const storageService = require('../services/storageService');
  * a script, an archive, a polyglot payload — is destroyed by that re-encode.
  */
 
+/** The public origin this request reached the API on; image URLs are built from it. */
+const requestOrigin = (req) => `${req.protocol}://${req.get('host')}`;
+
 // ── POST /api/upload ─────────────────────────────────────────────────────────
 const uploadImage = asyncHandler(async (req, res) => {
   if (!req.file || !req.file.buffer) {
     throw ApiError.badRequest('No image was uploaded.');
   }
 
-  const image = await storageService.storeImage(req.file.buffer);
+  const image = await storageService.storeImage(req.file.buffer, { origin: requestOrigin(req) });
   return sendCreated(res, { image });
 });
 
@@ -32,7 +35,7 @@ const uploadImages = asyncHandler(async (req, res) => {
   const images = [];
   for (const file of req.files) {
     // eslint-disable-next-line no-await-in-loop
-    images.push(await storageService.storeImage(file.buffer));
+    images.push(await storageService.storeImage(file.buffer, { origin: requestOrigin(req) }));
   }
 
   return sendCreated(res, { images });
@@ -52,6 +55,7 @@ const uploadStorefrontImage = asyncHandler(async (req, res) => {
 
   const image = await storageService.storeImage(req.file.buffer, {
     maxDimension: storageService.STOREFRONT_MAX_DIMENSION,
+    origin: requestOrigin(req),
   });
   return sendCreated(res, { image });
 });

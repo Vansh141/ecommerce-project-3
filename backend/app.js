@@ -14,6 +14,7 @@ const sanitizeRequest = require('./middleware/sanitizeRequest');
 const { globalLimiter } = require('./middleware/rateLimiters');
 const paymentController = require('./controllers/paymentController');
 const apiRoutes = require('./routes');
+const MediaFile = require('./models/MediaFile');
 
 const app = express();
 
@@ -155,6 +156,28 @@ app.use(
     },
   })
 );
+
+/* ── Images stored in the database ──────────────────────────────────────────
+ * Production uploads when Cloudinary is unconfigured. Same protections as
+ * /uploads. A stored image never changes (a replacement gets a new id), so it
+ * can be cached for a year. */
+app.get('/media/:file', async (req, res, next) => {
+  try {
+    const match = /^([a-f0-9]{24})\.webp$/i.exec(req.params.file);
+    if (!match) return res.status(404).end();
+    const media = await MediaFile.findById(match[1]).select('data contentType').lean();
+    if (!media) return res.status(404).end();
+
+    res.setHeader('Content-Type', media.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    return res.end(Buffer.from(media.data.buffer ?? media.data));
+  } catch (err) {
+    return next(err);
+  }
+});
 
 /* ── API ───────────────────────────────────────────────────────────────── */
 app.use('/api', apiRoutes);

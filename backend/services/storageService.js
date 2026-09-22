@@ -6,6 +6,7 @@ const config = require('../config/env');
 const ApiError = require('../utils/ApiError');
 const logger = require('../utils/logger');
 const { detectImage } = require('../utils/imageValidation');
+const MediaFile = require('../models/MediaFile');
 
 const MAX_DIMENSION = 1600;
 const THUMB_DIMENSION = 600;
@@ -29,10 +30,10 @@ if (config.cloudinary.enabled) {
     secure: true,
   });
   logger.info('Cloudinary storage enabled');
+} else if (config.isProduction) {
+  logger.warn('Cloudinary is not configured — uploads are stored in the database.');
 } else {
-  logger.warn(
-    'Cloudinary is not configured — uploads use local disk. This is fine for development but ephemeral in production.'
-  );
+  logger.warn('Cloudinary is not configured — uploads use local disk (development).');
 }
 
 /**
@@ -110,29 +111,41 @@ async function uploadToCloudinary(processed, folder) {
 }
 
 /**
- * The origin locally stored images are served from, or `null` when no working
- * URL can be formed.
- *
- * The storefront and admin run on another origin than the API, so a bare
- * `/uploads/...` path would load from the storefront and come back as its HTML
- * page — a broken image. Production therefore needs Cloudinary or an explicit
- * API_PUBLIC_URL; development falls back to the local API server.
+ * The public origin of this API, for image URLs. The storefront and admin run
+ * on another origin, so a bare `/uploads/...` or `/media/...` path would load
+ * from the storefront and come back as its HTML page — a broken image.
+ * An explicit API_PUBLIC_URL wins; otherwise the origin the upload request
+ * arrived on (behind Render's proxy, `trust proxy` makes that https).
  */
-function localUploadBase({ apiPublicUrl, isProduction, port }) {
+function publicOrigin({ apiPublicUrl, isProduction, port }, requestOrigin) {
   if (apiPublicUrl) return apiPublicUrl.replace(/\/$/, '');
+  if (requestOrigin) return requestOrigin.replace(/\/$/, '');
   return isProduction ? null : `http://localhost:${port}`;
 }
 
-async function uploadToLocalDisk(processed) {
-  const base = localUploadBase(config);
-  if (base === null) {
-    // Refuse rather than store a file behind a URL that cannot load.
-    logger.error('Image upload refused: Cloudinary is not configured and API_PUBLIC_URL is not set.');
-    throw ApiError.serviceUnavailable(
-      'Image uploads are not set up on this server yet. Add the Cloudinary keys (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) to the API service, then upload again.',
-      { code: 'STORAGE_NOT_CONFIGURED' }
-    );
-  }
+/** Production without Cloudinary: the database outlives redeploys; the disk does not. */
+async function uploadToDatabase(processed, origin) {
+  const base = publicOrigin(config, origin);
+  if (!base) throw ApiError.internal('Could not determine the public address for the uploaded image.');
+
+  const doc = await MediaFile.create({
+    data: processed.buffer,
+    contentType: 'image/webp',
+    width: processed.width,
+    height: processed.height,
+    bytes: processed.buffer.length,
+  });
+
+  return {
+    url: `${base}/media/${doc._id}.webp`,
+    publicId: `db:${doc._id}`,
+    width: processed.width,
+    height: processed.height,
+  };
+}
+
+async function uploadToLocalDisk(processed, origin) {
+  const base = publicOrigin(config, origin);
 
   await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
 
@@ -157,16 +170,23 @@ async function uploadToLocalDisk(processed) {
   };
 }
 
-/** Validates, re-encodes and stores an image. Returns a persistable descriptor. */
-async function storeImage(buffer, { folder = config.cloudinary.folder, thumbnail = false, maxDimension = MAX_DIMENSION } = {}) {
+/**
+ * Validates, re-encodes and stores an image. Returns a persistable descriptor.
+ * `origin` is the public origin the upload request arrived on, used to build
+ * the image URL when the file is served by this API.
+ */
+async function storeImage(buffer, {
+  folder = config.cloudinary.folder, thumbnail = false, maxDimension = MAX_DIMENSION, origin = '',
+} = {}) {
   const ceiling = Math.min(Math.max(Number(maxDimension) || MAX_DIMENSION, 1), STOREFRONT_MAX_DIMENSION);
   const processed = await processImage(buffer, {
     maxDimension: thumbnail ? THUMB_DIMENSION : ceiling,
   });
 
-  const result = cloudinary
-    ? await uploadToCloudinary(processed, folder)
-    : await uploadToLocalDisk(processed);
+  let result;
+  if (cloudinary) result = await uploadToCloudinary(processed, folder);
+  else if (config.isProduction) result = await uploadToDatabase(processed, origin);
+  else result = await uploadToLocalDisk(processed, origin);
 
   return { ...result, alt: '' };
 }
@@ -184,6 +204,11 @@ async function deleteImage(publicId) {
       }
       return;
     }
+    if (publicId.startsWith('db:')) {
+      const id = publicId.slice('db:'.length);
+      if (/^[a-f0-9]{24}$/i.test(id)) await MediaFile.deleteOne({ _id: id });
+      return;
+    }
     if (cloudinary) await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
   } catch (err) {
     logger.warn('Failed to delete stored image', { publicId, message: err.message });
@@ -192,7 +217,8 @@ async function deleteImage(publicId) {
 
 module.exports = {
   storeImage,
-  localUploadBase,
+  publicOrigin,
+  uploadToDatabase,
   deleteImage,
   processImage,
   isCloudStorage: () => Boolean(cloudinary),
