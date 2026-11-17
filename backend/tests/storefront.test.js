@@ -759,6 +759,89 @@ describe('Storefront homepage builder', () => {
     });
   });
 
+  describe('menu bar and footer', () => {
+    const MENU = {
+      logo: null,
+      links: [
+        { enabled: true, label: 'Shop all', link: '/shop' },
+        { enabled: false, label: 'Clearance', link: '/shop?onSale=true' },
+      ],
+      showCategories: false,
+      sale: { enabled: true, label: 'Festive', link: '/shop?category=festive-wear' },
+    };
+
+    const FOOTER = {
+      tagline: 'Handwoven pieces, made to last.',
+      newsletter: { enabled: false, title: '', description: '' },
+      shop: { title: 'Browse', showCategories: true, links: [{ enabled: true, label: 'All products', link: '/shop' }] },
+      help: { title: 'Help', links: [{ enabled: false, label: 'Retired page', link: '/about' }] },
+      contact: { title: 'Get in touch', phone: '+91 91633 99339', email: 'hello@touchh.in', location: 'Howrah, West Bengal' },
+      social: { title: 'Follow us', instagram: 'https://www.instagram.com/touchh.in/', handle: '@touchh.in', note: '' },
+      legal: {
+        title: 'Legal & business details',
+        legalName: 'ROMIUL KARIM MULLICK',
+        tradeName: 'RNR CREATIONS',
+        gstin: '19FCRPM5613K1ZW',
+        address: 'K.F.MARKET, MUNSHIDANGA MORE,\nHowrah, West Bengal, 711403',
+      },
+      bottom: { copyright: 'TOUCHH. All rights reserved.', links: [{ enabled: true, label: 'Privacy', link: '/privacy' }] },
+    };
+
+    it('leaves both unset until they are edited, so the built-in ones are used', async () => {
+      const admin = await createAdmin();
+      const { content } = await festiveHomepage();
+
+      await asUser(admin.token).post(`${ADMIN}/publish`).send({ content }).expect(200);
+
+      const stored = await StorefrontContent.findOne().lean();
+      expect(stored.published.header).toBeNull();
+      expect(stored.published.footer).toBeNull();
+
+      const live = await request(app).get('/api/storefront');
+      expect(live.body.data.content.header).toBeNull();
+      expect(live.body.data.content.footer).toBeNull();
+    });
+
+    it('publishes an edited menu bar and footer, and hides switched-off links from shoppers', async () => {
+      const admin = await createAdmin();
+      const { content } = await festiveHomepage();
+      content.header = MENU;
+      content.footer = FOOTER;
+
+      await asUser(admin.token).post(`${ADMIN}/publish`).send({ content }).expect(200);
+
+      // The draft keeps every link, switched off or not, so the owner can bring one back.
+      const stored = await StorefrontContent.findOne().lean();
+      expect(stored.published.header.links).toHaveLength(2);
+      expect(stored.published.header.showCategories).toBe(false);
+      expect(stored.published.footer.help.links).toHaveLength(1);
+
+      const { header, footer } = (await request(app).get('/api/storefront')).body.data.content;
+      expect(header.links.map((l) => l.label)).toEqual(['Shop all']);
+      expect(header.sale).toEqual({ enabled: true, label: 'Festive', link: '/shop?category=festive-wear' });
+      expect(footer.help.links).toEqual([]);
+      expect(footer.shop.links.map((l) => l.label)).toEqual(['All products']);
+      expect(footer.contact.email).toBe('hello@touchh.in');
+      expect(footer.legal.address).toContain('Howrah, West Bengal, 711403');
+      expect(footer.newsletter.enabled).toBe(false);
+    });
+
+    it('stores a logo like any other uploaded image, without its storage reference', async () => {
+      const admin = await createAdmin();
+      const { content } = await festiveHomepage();
+      content.header = { ...MENU, logo: image('logo', 600, 150) };
+
+      await asUser(admin.token).post(`${ADMIN}/publish`).send({ content }).expect(200);
+
+      const stored = await StorefrontContent.findOne().lean();
+      expect(stored.published.header.logo.publicId).toBe('touch/logo');
+
+      const { header } = (await request(app).get('/api/storefront')).body.data.content;
+      expect(header.logo.url).toBe(content.header.logo.url);
+      expect(header.logo.publicId).toBeUndefined();
+    });
+  });
+
   describe('validation', () => {
     const rejects = async (mutate, field) => {
       const admin = await createAdmin();
@@ -805,6 +888,19 @@ describe('Storefront homepage builder', () => {
         'announcement.items'
       );
       await rejects((c) => { c.sections[3].heading = 'x'.repeat(61); }, 'sections.3.heading');
+    });
+
+    it('rejects unsafe or malformed menu bar and footer details', async () => {
+      await rejects((c) => { c.header = { links: [{ enabled: true, label: 'Deals', link: 'javascript:alert(1)' }] }; }, 'header.links.0.link');
+      await rejects((c) => { c.header = { links: [{ enabled: true, label: '', link: '/shop' }] }; }, 'header.links.0.label');
+      await rejects(
+        (c) => { c.header = { links: Array.from({ length: 7 }, (_, i) => ({ enabled: true, label: `Link ${i}`, link: '/shop' })) }; },
+        'header.links'
+      );
+      await rejects((c) => { c.footer = { contact: { email: 'not-an-address' } }; }, 'footer.contact.email');
+      await rejects((c) => { c.footer = { contact: { phone: 'call us anytime' } }; }, 'footer.contact.phone');
+      await rejects((c) => { c.footer = { legal: { legalName: '<b>RNR CREATIONS</b>' } }; }, 'footer.legal.legalName');
+      await rejects((c) => { c.footer = { social: { instagram: '//evil.example.com' } }; }, 'footer.social.instagram');
     });
 
     it('stores only whitelisted fields', async () => {

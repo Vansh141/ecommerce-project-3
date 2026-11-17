@@ -87,6 +87,14 @@ export const GLOBAL_META = {
     label: 'Top Message',
     description: 'These messages move across the top of your website.',
   },
+  header: {
+    label: 'Menu Bar',
+    description: 'Your logo and the menu links at the top of every page.',
+  },
+  footer: {
+    label: 'Footer',
+    description: 'The links, contact details and business details at the bottom of every page.',
+  },
   seo: {
     label: 'Website & Social Sharing',
     description: 'How your homepage appears on Google and when it is shared.',

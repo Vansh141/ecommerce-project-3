@@ -73,6 +73,12 @@ const LIMITS = Object.freeze({
   productIds: 24,
   productLimit: 24,
   heroSlides: 4,
+  /** Navigation links the owner adds beside the automatic category links. */
+  headerLinks: 6,
+  /** Links in one footer column. */
+  footerLinks: 8,
+  /** Links beside the copyright line. */
+  footerBottomLinks: 4,
   /** Earlier published versions kept for "Restore Previous Version". */
   history: 5,
 });
@@ -111,6 +117,15 @@ const contentSchema = new mongoose.Schema(
       speed: { type: String, enum: ANNOUNCEMENT_SPEEDS, default: 'normal' },
       items: { type: [announcementItemSchema], default: [] },
     },
+    /**
+     * The navigation bar and the footer, on every storefront page. Like
+     * `sections`, both are stored as validated plain objects: `storefrontService`
+     * rebuilds each field from an explicit whitelist before it is saved, and a
+     * document saved before they existed simply has neither, so the storefront
+     * falls back to its built-in header and footer.
+     */
+    header: { type: mongoose.Schema.Types.Mixed, default: null },
+    footer: { type: mongoose.Schema.Types.Mixed, default: null },
     seo: {
       title: text(70),
       description: text(170),

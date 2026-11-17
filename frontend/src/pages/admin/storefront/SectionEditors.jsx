@@ -1257,3 +1257,210 @@ export function SeoEditor() {
     </div>
   );
 }
+
+/* ══════════════════════ Menu bar and footer ══════════════════════════════ */
+
+/**
+ * A list of links the owner writes: each one can be switched off without
+ * losing it, which is how a seasonal link is kept ready for next time.
+ */
+function LinkListEditor({ path, max, addLabel, emptyText, labelMax = 40, placeholder = 'Shop all', linkPlaceholder = '/shop' }) {
+  return (
+    <ListEditor
+      path={path}
+      max={max}
+      itemLabel="Link"
+      addLabel={addLabel}
+      emptyText={emptyText}
+      createItem={() => ({ enabled: true, label: '', link: '' })}
+      renderTitle={(item) => (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium text-ink">{item.label || 'New link'}</span>
+          {item.enabled === false && <span className="badge-neutral shrink-0">Hidden</span>}
+        </span>
+      )}
+    >
+      {(itemPath) => (
+        <>
+          <ToggleField path={[...itemPath, 'enabled']} label="Show this link" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField path={[...itemPath, 'label']} label="Link text" max={labelMax} required placeholder={placeholder} />
+            <TextField path={[...itemPath, 'link']} label="Where it goes" hint={LINK_HINT} max={300} required placeholder={linkPlaceholder} />
+          </div>
+        </>
+      )}
+    </ListEditor>
+  );
+}
+
+export function HeaderEditor() {
+  return (
+    <div className="space-y-5">
+      <Card title="Logo" description="Shown at the top of every page, and in the footer.">
+        <div className="max-w-sm">
+          <ImageField
+            path={['header', 'logo']}
+            label="Logo picture"
+            hint="If empty, your store name is shown in writing, as it is now."
+            recommended={{ width: 600, height: 150 }}
+            aspect="aspect-[4/1]"
+            fit="contain"
+            emptyText="Store name in writing"
+          />
+        </div>
+        <Notice tone="info">
+          A logo with a see-through background (a PNG) sits best on the bar. Tall logos are made smaller to fit.
+        </Notice>
+      </Card>
+
+      <Card title="Menu links" description="Shown at the top of every page, in this order.">
+        <LinkListEditor
+          path={['header', 'links']}
+          max={STOREFRONT_LIMITS.headerLinks}
+          addLabel="Add Menu Link"
+          emptyText="No menu links yet. Add one, or leave this empty to show only your categories."
+          labelMax={24}
+        />
+        <p className="text-xs text-ink-faint">
+          Keep menu text short. On smaller screens the links that don’t fit move into a “More” menu automatically,
+          and on phones they all appear in the side menu.
+        </p>
+      </Card>
+
+      <Card title="Your categories" description="Your shop categories can follow your menu links automatically.">
+        <ToggleField path={['header', 'showCategories']} label="Show my categories in the menu" />
+        <p className="text-xs text-ink-faint">
+          Categories come from Products → Categories. Only the ones that are visible, allowed in the menu and have
+          products in them appear here, so the menu never leads to an empty page.
+        </p>
+      </Card>
+
+      <Card title="Highlighted link" description="The last link in the menu, shown in a stronger colour.">
+        <ToggleField path={['header', 'sale', 'enabled']} label="Show the highlighted link" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField path={['header', 'sale', 'label']} label="Link text" max={24} placeholder="Sale" />
+          <TextField path={['header', 'sale', 'link']} label="Where it goes" hint={LINK_HINT} max={300} placeholder="/shop?onSale=true" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function FooterEditor() {
+  return (
+    <div className="space-y-5">
+      <Card title="About your store" description="The short line under your logo at the bottom of every page.">
+        <TextField
+          path={['footer', 'tagline']}
+          label="Short description"
+          max={200}
+          multiline
+          rows={2}
+          placeholder="Timeless Indian ethnic wear, thoughtfully made for every occasion."
+        />
+      </Card>
+
+      <Card title="Newsletter" description="The sign-up box at the top of the footer.">
+        <ToggleField path={['footer', 'newsletter', 'enabled']} label="Show the newsletter sign-up" />
+        <TextField path={['footer', 'newsletter', 'title']} label="Heading" max={60} placeholder="Be first to know" />
+        <TextField
+          path={['footer', 'newsletter', 'description']}
+          label="Supporting text"
+          max={200}
+          multiline
+          rows={2}
+          placeholder="New arrivals, restocks and studio notes. No more than twice a month."
+        />
+      </Card>
+
+      <Card title="Shop column" description="The first column of links in the footer.">
+        <TextField path={['footer', 'shop', 'title']} label="Column heading" max={40} placeholder="Shop" />
+        <ToggleField path={['footer', 'shop', 'showCategories']} label="List my categories under these links" />
+        <LinkListEditor
+          path={['footer', 'shop', 'links']}
+          max={STOREFRONT_LIMITS.footerLinks}
+          addLabel="Add Link"
+          emptyText="No links yet."
+          placeholder="All products"
+        />
+      </Card>
+
+      <Card title="Help column" description="The second column of links in the footer.">
+        <TextField path={['footer', 'help', 'title']} label="Column heading" max={40} placeholder="Help" />
+        <LinkListEditor
+          path={['footer', 'help', 'links']}
+          max={STOREFRONT_LIMITS.footerLinks}
+          addLabel="Add Link"
+          emptyText="No links yet."
+          placeholder="Track your order"
+          linkPlaceholder="/orders"
+        />
+      </Card>
+
+      <Card title="Get in touch" description="How customers reach you. Anything left empty is simply not shown.">
+        <TextField path={['footer', 'contact', 'title']} label="Column heading" max={40} placeholder="Get in touch" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField path={['footer', 'contact', 'phone']} label="Phone number" max={24} placeholder="+91 91633 99339" />
+          <TextField path={['footer', 'contact', 'email']} label="Email address" max={120} placeholder="hello@yourstore.com" />
+        </div>
+        <TextField
+          path={['footer', 'contact', 'location']}
+          label="Area"
+          help="A short place name, like the city and state. The full address goes in Business details below."
+          max={80}
+          placeholder="Howrah, West Bengal"
+        />
+      </Card>
+
+      <Card title="Instagram" description="Shown with your Instagram name at the bottom of the page.">
+        <TextField path={['footer', 'social', 'title']} label="Heading" max={40} placeholder="Follow TOUCHH" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            path={['footer', 'social', 'instagram']}
+            label="Instagram address"
+            hint="A full https:// address. Leave empty to hide Instagram."
+            max={300}
+            placeholder="https://www.instagram.com/yourstore/"
+          />
+          <TextField path={['footer', 'social', 'handle']} label="Instagram name" max={40} placeholder="@yourstore" />
+        </div>
+        <TextField path={['footer', 'social', 'note']} label="Small text underneath" max={80} placeholder="Follow us on Instagram" />
+      </Card>
+
+      <Card title="Business details" description="Your legal and GST details, as shown at the bottom of every page.">
+        <TextField path={['footer', 'legal', 'title']} label="Heading" max={40} placeholder="Legal & business details" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField path={['footer', 'legal', 'legalName']} label="Legal name" max={120} />
+          <TextField path={['footer', 'legal', 'tradeName']} label="Trade name" max={120} />
+        </div>
+        <TextField path={['footer', 'legal', 'gstin']} label="GSTIN" max={20} />
+        <TextField
+          path={['footer', 'legal', 'address']}
+          label="Business address"
+          help="One line of the address per line."
+          max={300}
+          multiline
+          rows={4}
+        />
+      </Card>
+
+      <Card title="Bottom line" description="The very last line of the page.">
+        <TextField
+          path={['footer', 'bottom', 'copyright']}
+          label="Copyright text"
+          help="The year and the © sign are added automatically."
+          max={120}
+          placeholder="TOUCHH. All rights reserved."
+        />
+        <LinkListEditor
+          path={['footer', 'bottom', 'links']}
+          max={STOREFRONT_LIMITS.footerBottomLinks}
+          addLabel="Add Link"
+          emptyText="No links yet."
+          placeholder="Privacy"
+          linkPlaceholder="/privacy"
+        />
+      </Card>
+    </div>
+  );
+}

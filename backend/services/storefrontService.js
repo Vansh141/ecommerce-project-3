@@ -32,6 +32,10 @@ const OBJECT_ID = /^[a-f0-9]{24}$/i;
 const SECTION_ID = /^[A-Za-z0-9_-]{4,40}$/;
 /** Same-site path: one leading slash, never `//host` or `/\host`, no spaces. */
 const SITE_PATH = /^\/(?![/\\])\S*$/;
+/** A plausible address, not a full RFC check — the shopper's mail app does the rest. */
+const EMAIL = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+/** A printed phone number: digits with the punctuation people write them with. */
+const PHONE = /^\+?[\d][\d\s()-]{5,23}$/;
 const HTTPS_URL = /^https:\/\/[^\s/?#]+\.[^\s/?#]+(?:[/?#]\S*)?$/i;
 /** Uploads are https (Cloudinary) or the API's own /uploads path. Plain http
  *  is only the local-disk fallback in development. */
@@ -48,7 +52,8 @@ const SECTION_LABELS = {
   brandMessage: 'Brand message',
 };
 
-const asObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const asObject = (value) => (isPlainObject(value) ? value : {});
 
 function createCollector() {
   const errors = [];
@@ -80,6 +85,20 @@ function createCollector() {
     if (!cleaned) return '';
     if (SITE_PATH.test(cleaned) || HTTPS_URL.test(cleaned)) return cleaned;
     add(field, `${label} must be a page on this site, like /shop, or a full https:// address.`);
+    return '';
+  };
+
+  const email = (value, field, label) => {
+    const cleaned = text(value, field, label, { max: 120 });
+    if (!cleaned || EMAIL.test(cleaned)) return cleaned;
+    add(field, `${label} must be an email address, like hello@yourstore.com.`);
+    return '';
+  };
+
+  const phone = (value, field, label) => {
+    const cleaned = text(value, field, label, { max: 24 });
+    if (!cleaned || PHONE.test(cleaned)) return cleaned;
+    add(field, `${label} must be a phone number, like +91 91633 99339.`);
     return '';
   };
 
@@ -194,7 +213,108 @@ function createCollector() {
     return ids;
   };
 
-  return { errors, refs, add, text, link, option, bool, int, image, list, ref, productRefs };
+  return { errors, refs, add, text, link, email, phone, option, bool, int, image, list, ref, productRefs };
+}
+
+/* ══════════════════════ Header and footer ════════════════════════════════ */
+
+/**
+ * One editable link. A link that is switched off may be left unfinished — the
+ * owner can keep a seasonal link in place without it blocking a save.
+ */
+function navLink(raw, f, v, labelMax) {
+  const enabled = v.bool(raw.enabled, true);
+  return {
+    enabled,
+    label: v.text(raw.label, `${f}.label`, 'Link text', { max: labelMax, required: enabled }),
+    link: v.link(raw.link, `${f}.link`, 'Link address', { required: enabled }),
+  };
+}
+
+/**
+ * The navigation bar: an optional logo picture in place of the wordmark, the
+ * owner's own links, whether the shop's categories follow them automatically,
+ * and the highlighted link at the end of the row.
+ */
+function headerContent(raw, v) {
+  const header = asObject(raw);
+  const sale = asObject(header.sale);
+  // A highlighted link nobody has written yet is simply off, rather than a
+  // complaint about two empty fields.
+  const saleEnabled = v.bool(sale.enabled, Boolean(sale.label || sale.link));
+
+  return {
+    logo: v.image(header.logo, 'header.logo', 'Logo'),
+    links: v.list(header.links, 'header.links', 'Menu links', LIMITS.headerLinks, (item, field) =>
+      navLink(item, field, v, 24)),
+    showCategories: v.bool(header.showCategories, true),
+    sale: {
+      enabled: saleEnabled,
+      label: v.text(sale.label, 'header.sale.label', 'Highlighted link text', { max: 24, required: saleEnabled }),
+      link: v.link(sale.link, 'header.sale.link', 'Highlighted link address', { required: saleEnabled }),
+    },
+  };
+}
+
+/** One footer column: its heading and its links. */
+function footerColumn(raw, f, v, { withCategories = false } = {}) {
+  const column = asObject(raw);
+  const result = {
+    title: v.text(column.title, `${f}.title`, 'Column heading', { max: 40 }),
+    links: v.list(column.links, `${f}.links`, 'Links', LIMITS.footerLinks, (item, field) =>
+      navLink(item, field, v, 40)),
+  };
+  if (withCategories) result.showCategories = v.bool(column.showCategories, true);
+  return result;
+}
+
+/**
+ * The footer: the newsletter invitation, the link columns, the contact and
+ * business details, and the line at the very bottom. Every field may be left
+ * empty, and an empty field simply does not appear on the website.
+ */
+function footerContent(raw, v) {
+  const footer = asObject(raw);
+  const newsletter = asObject(footer.newsletter);
+  const contact = asObject(footer.contact);
+  const social = asObject(footer.social);
+  const legal = asObject(footer.legal);
+  const bottom = asObject(footer.bottom);
+
+  return {
+    tagline: v.text(footer.tagline, 'footer.tagline', 'About your store', { max: 200 }),
+    newsletter: {
+      enabled: v.bool(newsletter.enabled, true),
+      title: v.text(newsletter.title, 'footer.newsletter.title', 'Newsletter heading', { max: 60 }),
+      description: v.text(newsletter.description, 'footer.newsletter.description', 'Newsletter text', { max: 200 }),
+    },
+    shop: footerColumn(footer.shop, 'footer.shop', v, { withCategories: true }),
+    help: footerColumn(footer.help, 'footer.help', v),
+    contact: {
+      title: v.text(contact.title, 'footer.contact.title', 'Contact heading', { max: 40 }),
+      phone: v.phone(contact.phone, 'footer.contact.phone', 'Phone number'),
+      email: v.email(contact.email, 'footer.contact.email', 'Email address'),
+      location: v.text(contact.location, 'footer.contact.location', 'Area', { max: 80 }),
+    },
+    social: {
+      title: v.text(social.title, 'footer.social.title', 'Follow heading', { max: 40 }),
+      instagram: v.link(social.instagram, 'footer.social.instagram', 'Instagram address'),
+      handle: v.text(social.handle, 'footer.social.handle', 'Instagram name', { max: 40 }),
+      note: v.text(social.note, 'footer.social.note', 'Follow text', { max: 80 }),
+    },
+    legal: {
+      title: v.text(legal.title, 'footer.legal.title', 'Business details heading', { max: 40 }),
+      legalName: v.text(legal.legalName, 'footer.legal.legalName', 'Legal name', { max: 120 }),
+      tradeName: v.text(legal.tradeName, 'footer.legal.tradeName', 'Trade name', { max: 120 }),
+      gstin: v.text(legal.gstin, 'footer.legal.gstin', 'GSTIN', { max: 20 }),
+      address: v.text(legal.address, 'footer.legal.address', 'Business address', { max: 300, multiline: true }),
+    },
+    bottom: {
+      copyright: v.text(bottom.copyright, 'footer.bottom.copyright', 'Copyright line', { max: 120 }),
+      links: v.list(bottom.links, 'footer.bottom.links', 'Bottom links', LIMITS.footerBottomLinks, (item, field) =>
+        navLink(item, field, v, 30)),
+    },
+  };
 }
 
 /* ══════════════════════ Sections ═════════════════════════════════════════ */
@@ -564,6 +684,11 @@ async function normaliseContent(raw) {
       direction: v.option(announcement.direction, ANNOUNCEMENT_DIRECTIONS, 'announcement.direction', 'Direction', 'rtl'),
       speed: v.option(announcement.speed, ANNOUNCEMENT_SPEEDS, 'announcement.speed', 'Speed', 'normal'),
     },
+    // Absent means "never edited": the storefront then uses its built-in
+    // header and footer. Storing an empty one instead would blank the menu
+    // and the footer of every store that has not opened those editors yet.
+    header: isPlainObject(raw.header) ? headerContent(raw.header, v) : null,
+    footer: isPlainObject(raw.footer) ? footerContent(raw.footer, v) : null,
     seo: {
       title: v.text(seo.title, 'seo.title', 'Meta title', { max: 70 }),
       description: v.text(seo.description, 'seo.description', 'Meta description', { max: 170 }),
@@ -621,6 +746,17 @@ function toPublicContent(content, { codAvailable = isCodAvailable() } = {}) {
       direction: clean.announcement?.direction === 'ltr' ? 'ltr' : 'rtl',
       speed: ['slow', 'fast'].includes(clean.announcement?.speed) ? clean.announcement.speed : 'normal',
     },
+    header: clean.header
+      ? { ...clean.header, links: enabledItems(clean.header.links) }
+      : null,
+    footer: clean.footer
+      ? {
+        ...clean.footer,
+        shop: { ...clean.footer.shop, links: enabledItems(clean.footer.shop?.links) },
+        help: { ...clean.footer.help, links: enabledItems(clean.footer.help?.links) },
+        bottom: { ...clean.footer.bottom, links: enabledItems(clean.footer.bottom?.links) },
+      }
+      : null,
     seo: {
       title: clean.seo?.title || '',
       description: clean.seo?.description || '',

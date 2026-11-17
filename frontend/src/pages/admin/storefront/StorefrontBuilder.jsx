@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowDown, ArrowUp, ChevronLeft, Copy, Eye, EyeOff, Globe, GripVertical, HelpCircle, History, Megaphone, Pencil, Plus, Send, Trash2, Undo2,
+  ArrowDown, ArrowUp, ChevronLeft, Copy, Eye, EyeOff, Globe, GripVertical, HelpCircle, History, Megaphone, PanelBottom,
+  PanelTop, Pencil, Plus, Send, Trash2, Undo2,
 } from 'lucide-react';
 import { categoryApi, paymentApi, storefrontApi } from '../../../api/endpoints';
 import { useDocumentMeta } from '../../../hooks';
@@ -10,13 +11,13 @@ import { useToast } from '../../../context/ToastContext';
 import { Alert, Button, ConfirmDialog, Modal, Skeleton } from '../../../components/ui';
 import {
   PRODUCT_SECTION_TYPES, SECTION_TYPES, STOREFRONT_ICON_KEYS, STOREFRONT_LIMITS, createSection, defaultStorefrontContent, withCategoryRail,
-  heroSlides, newSectionId, normalizeSection,
+  heroSlides, newSectionId, normalizeSection, resolveFooter, resolveHeader,
 } from '../../../config/storefront';
 import { formatDate } from '../../../utils/format';
 import { EditorContext, getIn, setIn } from './editorContext';
 import { GLOBAL_META, SECTION_META, categoriesAsItems, sectionSummary, sectionTitle } from './sectionMeta';
 import SectionPreview from './SectionPreview';
-import { AnnouncementEditor, SectionEditor, SeoEditor } from './SectionEditors';
+import { AnnouncementEditor, FooterEditor, HeaderEditor, SectionEditor, SeoEditor } from './SectionEditors';
 
 /**
  * Admin → Storefront → Homepage.
@@ -75,6 +76,68 @@ function withSlides(section) {
 
 const hasSavedContent = (raw) => Boolean(raw) && typeof raw === 'object' && Array.isArray(raw.sections);
 
+/** A saved list of links, as the editor holds them — nothing else rides along. */
+const linkList = (items) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    enabled: item?.enabled !== false,
+    label: str(item?.label),
+    link: str(item?.link),
+  }));
+
+/** The menu bar as the editor holds it, over the built-in one. */
+function editableHeader(raw) {
+  const header = resolveHeader(raw);
+  return {
+    logo: image(header.logo),
+    links: linkList(header.links),
+    showCategories: header.showCategories !== false,
+    sale: {
+      enabled: header.sale.enabled !== false,
+      label: str(header.sale.label),
+      link: str(header.sale.link),
+    },
+  };
+}
+
+/** The footer as the editor holds it, over the built-in one. */
+function editableFooter(raw) {
+  const footer = resolveFooter(raw);
+  return {
+    tagline: str(footer.tagline),
+    newsletter: {
+      enabled: footer.newsletter.enabled !== false,
+      title: str(footer.newsletter.title),
+      description: str(footer.newsletter.description),
+    },
+    shop: {
+      title: str(footer.shop.title),
+      showCategories: footer.shop.showCategories !== false,
+      links: linkList(footer.shop.links),
+    },
+    help: { title: str(footer.help.title), links: linkList(footer.help.links) },
+    contact: {
+      title: str(footer.contact.title),
+      phone: str(footer.contact.phone),
+      email: str(footer.contact.email),
+      location: str(footer.contact.location),
+    },
+    social: {
+      title: str(footer.social.title),
+      instagram: str(footer.social.instagram),
+      handle: str(footer.social.handle),
+      note: str(footer.social.note),
+    },
+    legal: {
+      title: str(footer.legal.title),
+      legalName: str(footer.legal.legalName),
+      tradeName: str(footer.legal.tradeName),
+      gstin: str(footer.legal.gstin),
+      address: str(footer.legal.address),
+    },
+    bottom: { copyright: str(footer.bottom.copyright), links: linkList(footer.bottom.links) },
+  };
+}
+
 /**
  * The exact document the API accepts. Before anything is saved, the editor
  * starts from the homepage customers see now: the built-in sections, with the
@@ -109,6 +172,8 @@ function toEditable(raw, payments, categories = []) {
         showWhen: item.showWhen === 'cod' ? 'cod' : 'always',
       })),
     },
+    header: editableHeader(source.header),
+    footer: editableFooter(source.footer),
     seo: {
       title: str(source.seo?.title),
       description: str(source.seo?.description),
@@ -370,6 +435,8 @@ export default function StorefrontBuilder() {
       const match = first.match(/^sections\.(\d+)/);
       if (match && form.sections[Number(match[1])]) select({ kind: 'section', id: form.sections[Number(match[1])].id });
       else if (first.startsWith('announcement')) select({ kind: 'announcement' });
+      else if (first.startsWith('header')) select({ kind: 'header' });
+      else if (first.startsWith('footer')) select({ kind: 'footer' });
       else if (first.startsWith('seo')) select({ kind: 'seo' });
       toast.error(requestErrorMessage(err, kind));
       return false;
@@ -463,6 +530,8 @@ export default function StorefrontBuilder() {
     const match = field.match(/^sections\.(\d+)/);
     if (match) return sections[Number(match[1])] ? sectionTitle(sections[Number(match[1])]) : 'Section';
     if (field.startsWith('announcement')) return GLOBAL_META.announcement.label;
+    if (field.startsWith('header')) return GLOBAL_META.header.label;
+    if (field.startsWith('footer')) return GLOBAL_META.footer.label;
     if (field.startsWith('seo')) return GLOBAL_META.seo.label;
     return 'Homepage';
   };
@@ -478,6 +547,14 @@ export default function StorefrontBuilder() {
   if (selected?.kind === 'announcement') {
     editor = <AnnouncementEditor />;
     editorHeading = GLOBAL_META.announcement;
+  }
+  if (selected?.kind === 'header') {
+    editor = <HeaderEditor />;
+    editorHeading = GLOBAL_META.header;
+  }
+  if (selected?.kind === 'footer') {
+    editor = <FooterEditor />;
+    editorHeading = GLOBAL_META.footer;
   }
   if (selected?.kind === 'seo') {
     editor = <SeoEditor />;
@@ -771,6 +848,8 @@ export default function StorefrontBuilder() {
             <div className="card p-2">
               <p className="px-2 pb-1 pt-1 text-2xs font-medium uppercase tracking-wider2 text-ink-muted">On every page</p>
               <GlobalRow kind="announcement" Icon={Megaphone} />
+              <GlobalRow kind="header" Icon={PanelTop} />
+              <GlobalRow kind="footer" Icon={PanelBottom} />
               <GlobalRow kind="seo" Icon={Globe} />
             </div>
           </aside>

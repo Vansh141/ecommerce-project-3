@@ -130,7 +130,7 @@ export default function StoreLayout() {
         payments={payments}
         loading={storefront.status === 'loading'}
       />
-      <Navbar categories={categories} />
+      <Navbar categories={categories} header={storefront.content.header} />
 
       <main id="main" className="flex-1">
         {/* Keeps the header and footer on screen while a page's code loads. */}
@@ -139,7 +139,11 @@ export default function StoreLayout() {
         </Suspense>
       </main>
 
-      <Footer categories={categories} />
+      <Footer
+        categories={categories}
+        content={storefront.content.footer}
+        logo={storefront.content.header?.logo || null}
+      />
 
       {showBottomNav && <BottomNav />}
     </div>

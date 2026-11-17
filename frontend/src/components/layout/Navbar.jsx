@@ -11,8 +11,10 @@ import {
   useClickOutside, useBodyScrollLock, useFocusTrap, useInertWhen,
 } from '../../hooks';
 import { shoppableCategories } from '../../utils/categories';
+import { defaultHeader } from '../../config/storefront';
 import { Button } from '../ui';
 import Wordmark from './Wordmark';
+import ContentLink, { isCurrentLink, usableLinks } from './ContentLink';
 
 /* ══════════════════════════════ Nav overflow ═════════════════════════════ */
 
@@ -253,7 +255,19 @@ function AccountMenu({ user, isAuthenticated, isAdmin, onLogout }) {
 
 /* ══════════════════════════════ Navbar ═══════════════════════════════════ */
 
-export default function Navbar({ categories = [] }) {
+/**
+ * The icon beside a menu link in the phone drawer. The built-in links keep
+ * the icons they have always had; a link the owner adds elsewhere gets none
+ * rather than a misleading one.
+ */
+const DRAWER_ICONS = [
+  [/onSale=true/, Tag],
+  [/newArrival=true/, Sparkles],
+  [/^\/shop(\?|$)/, LayoutGrid],
+];
+const drawerIcon = (to) => DRAWER_ICONS.find(([pattern]) => pattern.test(String(to || '')))?.[1];
+
+export default function Navbar({ categories = [], header }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
@@ -331,16 +345,27 @@ export default function Navbar({ categories = [] }) {
     navigate('/');
   };
 
+  /**
+   * The menu, as the store owner edits it in Admin → Storefront → Menu Bar.
+   * A store that has never opened the editor gets the built-in menu, so the
+   * header looks exactly as it always has.
+   */
+  const content = useMemo(() => header || defaultHeader(), [header]);
+  const menuLinks = useMemo(() => usableLinks(content.links), [content.links]);
+  const sale = content.sale?.enabled !== false && content.sale?.label && content.sale?.link ? content.sale : null;
+
   // Only categories that are active, allowed in navigation and hold products.
-  const navCategories = useMemo(() => shoppableCategories(categories), [categories]);
+  const navCategories = useMemo(
+    () => (content.showCategories === false ? [] : shoppableCategories(categories)),
+    [categories, content.showCategories]
+  );
 
   /**
-   * Three links are always one click away: Shop all, New arrivals and Sale.
-   * New arrivals and Sale are filters on the catalogue rather than categories,
-   * so they work whatever categories exist. Every category may move into
-   * "More" when space runs out.
+   * The owner's own links and the highlighted link are always one click away;
+   * they are filters or pages rather than categories, so they work whatever
+   * categories exist. Every category may move into "More" when space runs out.
    */
-  const FIXED_LINKS = 3;
+  const FIXED_LINKS = menuLinks.length + (sale ? 1 : 0);
   const { visibleCount, centred: navCentred } = useNavLayout({
     rowRef: headerRowRef,
     brandRef,
@@ -355,9 +380,7 @@ export default function Navbar({ categories = [] }) {
   const params = new URLSearchParams(location.search);
   const onShop = location.pathname === '/shop';
   const isCategoryActive = (slug) => onShop && params.get('category') === slug;
-  const onShopAll = onShop && !location.search;
-  const onNewArrivals = onShop && params.get('newArrival') === 'true';
-  const onSale = onShop && params.get('onSale') === 'true';
+  const onSale = sale ? isCurrentLink(sale.link, location) : false;
 
   const accountMenuProps = { user, isAuthenticated, isAdmin, onLogout: handleLogout };
   const wishLabel = countLabel('Wishlist', wishCount, 'item');
@@ -400,7 +423,7 @@ export default function Navbar({ categories = [] }) {
               className="justify-self-center rounded-control px-1 transition-opacity hover:opacity-70 lg:justify-self-start"
               aria-label="TOUCHH — home"
             >
-              <Wordmark className="text-[1.0625rem] min-[375px]:text-[1.1875rem] sm:text-2xl lg:text-[1.625rem]" />
+              <Wordmark logo={content.logo} className="text-[1.0625rem] min-[375px]:text-[1.1875rem] sm:text-2xl lg:text-[1.625rem]" />
             </Link>
 
             <nav
@@ -414,22 +437,20 @@ export default function Navbar({ categories = [] }) {
                   measure and paint — a surplus link is clipped rather than
                   allowed to widen the page. */}
               <div className="flex min-w-0 items-center gap-x-4 overflow-hidden xl:gap-x-6 2xl:gap-x-7">
-                <Link
-                  to="/shop"
-                  className="nav-link shrink-0 focus-visible:ring-inset focus-visible:ring-offset-0"
-                  data-active={onShopAll}
-                  aria-current={onShopAll ? 'page' : undefined}
-                >
-                  Shop all
-                </Link>
-                <Link
-                  to="/shop?newArrival=true"
-                  className="nav-link shrink-0 focus-visible:ring-inset focus-visible:ring-offset-0"
-                  data-active={onNewArrivals}
-                  aria-current={onNewArrivals ? 'page' : undefined}
-                >
-                  New arrivals
-                </Link>
+                {menuLinks.map((item) => {
+                  const current = isCurrentLink(item.link, location);
+                  return (
+                    <ContentLink
+                      key={`${item.label}-${item.link}`}
+                      to={item.link}
+                      className="nav-link shrink-0 focus-visible:ring-inset focus-visible:ring-offset-0"
+                      data-active={current}
+                      aria-current={current ? 'page' : undefined}
+                    >
+                      {item.label}
+                    </ContentLink>
+                  );
+                })}
 
                 {shown.map((c) => (
                   <Link
@@ -484,14 +505,16 @@ export default function Navbar({ categories = [] }) {
                 </div>
               )}
 
-              <Link
-                to="/shop?onSale=true"
-                className="nav-link nav-link-sale shrink-0"
-                data-active={onSale}
-                aria-current={onSale ? 'page' : undefined}
-              >
-                Sale
-              </Link>
+              {sale && (
+                <ContentLink
+                  to={sale.link}
+                  className="nav-link nav-link-sale shrink-0"
+                  data-active={onSale}
+                  aria-current={onSale ? 'page' : undefined}
+                >
+                  {sale.label}
+                </ContentLink>
+              )}
 
               {/* Hidden measuring copy — same typography, never painted. The
                   clipping wrapper matters: an unclipped ghost wider than the
@@ -509,9 +532,12 @@ export default function Navbar({ categories = [] }) {
                   // under-measures them — letting one category too many in.
                   className="invisible absolute left-0 top-0 flex w-max gap-x-4 xl:gap-x-6 2xl:gap-x-7"
                 >
-                  <span className="nav-link">Shop all</span>
-                  <span className="nav-link">New arrivals</span>
-                  <span className="nav-link nav-link-sale">Sale</span>
+                  {/* The links that never move into "More" come first, in the
+                      same order as the count above expects them. */}
+                  {menuLinks.map((item) => (
+                    <span key={`${item.label}-${item.link}`} className="nav-link">{item.label}</span>
+                  ))}
+                  {sale && <span className="nav-link nav-link-sale">{sale.label}</span>}
                   {navCategories.map((c) => (
                     <span key={c._id} className="nav-link">{c.name}</span>
                   ))}
@@ -644,7 +670,7 @@ export default function Navbar({ categories = [] }) {
                       }`}
         >
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-5">
-            <Wordmark className="text-lg" />
+            <Wordmark logo={content.logo} className="text-lg" />
             <button
               type="button"
               onClick={() => setDrawerOpen(false)}
@@ -657,9 +683,11 @@ export default function Navbar({ categories = [] }) {
 
           <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Mobile">
             <ul className="space-y-0.5">
-              <li><DrawerLink to="/shop" icon={LayoutGrid} emphasis>Shop all</DrawerLink></li>
-              <li><DrawerLink to="/shop?newArrival=true" icon={Sparkles} emphasis>New arrivals</DrawerLink></li>
-              <li><DrawerLink to="/shop?onSale=true" icon={Tag} emphasis>Sale</DrawerLink></li>
+              {[...menuLinks, ...(sale ? [sale] : [])].map((item) => (
+                <li key={`${item.label}-${item.link}`}>
+                  <DrawerLink to={item.link} icon={drawerIcon(item.link)} emphasis>{item.label}</DrawerLink>
+                </li>
+              ))}
             </ul>
 
             {navCategories.length > 0 && (
@@ -743,7 +771,7 @@ export default function Navbar({ categories = [] }) {
 /** One row inside the mobile drawer — consistent height, target and chevron. */
 function DrawerLink({ to, icon: Icon, emphasis = false, children }) {
   return (
-    <Link
+    <ContentLink
       to={to}
       className={`flex min-h-[44px] items-center gap-3 rounded-control px-3 py-2.5 text-sm
                   transition-colors hover:bg-paper-sunken ${
@@ -753,6 +781,6 @@ function DrawerLink({ to, icon: Icon, emphasis = false, children }) {
       {Icon && <Icon size={16} className="shrink-0 text-ink-muted" aria-hidden="true" />}
       <span className="min-w-0 flex-1">{children}</span>
       <ChevronRight size={15} className="shrink-0 text-ink-faint" aria-hidden="true" />
-    </Link>
+    </ContentLink>
   );
 }

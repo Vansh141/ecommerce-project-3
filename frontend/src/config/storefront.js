@@ -1,4 +1,7 @@
 import { FREE_SHIPPING_THRESHOLD, RETURN_WINDOW_DAYS } from './store';
+import {
+  BRAND_NAME, BUSINESS_ADDRESS, BUSINESS_LOCALITY, CONTACT, INSTAGRAM, LEGAL,
+} from './business';
 import { formatPrice } from '../utils/format';
 
 /**
@@ -119,6 +122,89 @@ export function serviceFacts(payments) {
   return facts;
 }
 
+/* ══════════════════════ Header and footer ════════════════════════════════ */
+
+/**
+ * The built-in navigation bar, as editable content.
+ *
+ * `links` are the owner's own menu links; the shop's categories follow them
+ * automatically while `showCategories` is on, and `sale` is the highlighted
+ * link that always sits at the end of the row. This is exactly what the
+ * header shows today, so a store that never opens the editor is unchanged.
+ */
+export function defaultHeader() {
+  return {
+    logo: null,
+    links: [
+      { enabled: true, label: 'Shop all', link: '/shop' },
+      { enabled: true, label: 'New arrivals', link: '/shop?newArrival=true' },
+    ],
+    showCategories: true,
+    sale: { enabled: true, label: 'Sale', link: '/shop?onSale=true' },
+  };
+}
+
+/** The built-in footer, as editable content — today's wording and details. */
+export function defaultFooter() {
+  return {
+    tagline: 'Timeless Indian ethnic wear, thoughtfully made for every occasion.',
+    newsletter: {
+      enabled: true,
+      title: 'Be first to know',
+      description: 'New arrivals, restocks and studio notes. No more than twice a month.',
+    },
+    shop: {
+      title: 'Shop',
+      showCategories: true,
+      links: [
+        { enabled: true, label: 'All products', link: '/shop' },
+        { enabled: true, label: 'New arrivals', link: '/shop?newArrival=true' },
+      ],
+    },
+    help: {
+      title: 'Help',
+      links: [
+        { enabled: true, label: 'Track your order', link: '/orders' },
+        { enabled: true, label: 'Shipping & returns', link: '/shipping-returns' },
+        { enabled: true, label: 'Contact us', link: '/contact' },
+        { enabled: true, label: `About ${BRAND_NAME}`, link: '/about' },
+      ],
+    },
+    contact: {
+      title: 'Get in touch',
+      phone: CONTACT.phoneDisplay,
+      email: CONTACT.email,
+      location: BUSINESS_LOCALITY,
+    },
+    social: {
+      title: `Follow ${BRAND_NAME}`,
+      instagram: INSTAGRAM.url,
+      handle: INSTAGRAM.handle,
+      note: 'Follow us on Instagram',
+    },
+    legal: {
+      title: 'Legal & business details',
+      legalName: LEGAL.legalName,
+      tradeName: LEGAL.tradeName,
+      gstin: LEGAL.gstin,
+      address: BUSINESS_ADDRESS.join('\n'),
+    },
+    bottom: {
+      copyright: `${BRAND_NAME}. All rights reserved.`,
+      links: [
+        { enabled: true, label: 'Privacy', link: '/privacy' },
+        { enabled: true, label: 'Terms', link: '/terms' },
+      ],
+    },
+  };
+}
+
+/** A phone number as a `tel:` address — digits and a leading `+` only. */
+export function telHref(phone) {
+  const cleaned = String(phone || '').replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+  return cleaned ? `tel:${cleaned}` : '';
+}
+
 /* ══════════════════════ Section definitions ══════════════════════════════ */
 
 /** Kept in step with `StorefrontContent.OPTIONS` on the API. */
@@ -138,6 +224,9 @@ export const STOREFRONT_LIMITS = Object.freeze({
   productIds: 24,
   productLimit: 24,
   heroSlides: 4,
+  headerLinks: 6,
+  footerLinks: 8,
+  footerBottomLinks: 4,
 });
 
 /** Seconds each Main Banner stays before the next one. */
@@ -399,6 +488,8 @@ export function defaultStorefrontContent({ payments } = {}) {
 
   return {
     schemaVersion: STOREFRONT_SCHEMA_VERSION,
+    header: defaultHeader(),
+    footer: defaultFooter(),
     // Phones show the first two messages, so cash on delivery comes second.
     announcement: {
       enabled: true,
@@ -510,6 +601,44 @@ export function withCategoryRail(sections, schemaVersion) {
   return next;
 }
 
+const over = (defaults, value) => ({ ...defaults, ...(isObject(value) ? value : {}) });
+
+/**
+ * Published header or footer content over the built-in one, so a document
+ * saved before either existed — or one missing a group of fields — still
+ * renders completely. A group the owner has actually saved is used as saved:
+ * a field they cleared stays cleared rather than springing back.
+ */
+export function resolveHeader(raw) {
+  const defaults = defaultHeader();
+  return {
+    ...over(defaults, raw),
+    links: Array.isArray(raw?.links) ? raw.links.filter(isObject) : defaults.links,
+    sale: over(defaults.sale, raw?.sale),
+  };
+}
+
+export function resolveFooter(raw) {
+  const defaults = defaultFooter();
+  const column = (key) => {
+    const saved = isObject(raw?.[key]) ? raw[key] : null;
+    return {
+      ...over(defaults[key], saved),
+      links: Array.isArray(saved?.links) ? saved.links.filter(isObject) : defaults[key].links,
+    };
+  };
+  return {
+    tagline: typeof raw?.tagline === 'string' ? raw.tagline : defaults.tagline,
+    newsletter: over(defaults.newsletter, raw?.newsletter),
+    shop: column('shop'),
+    help: column('help'),
+    contact: over(defaults.contact, raw?.contact),
+    social: over(defaults.social, raw?.social),
+    legal: over(defaults.legal, raw?.legal),
+    bottom: column('bottom'),
+  };
+}
+
 /**
  * Published content, normalised over the built-in defaults so a missing or
  * incomplete document still renders a complete homepage. `fromCms` tells
@@ -553,7 +682,15 @@ export function resolveStorefront(published, { payments } = {}) {
     }
   });
 
-  return { schemaVersion: STOREFRONT_SCHEMA_VERSION, announcement, seo, sections, fromCms: true };
+  return {
+    schemaVersion: STOREFRONT_SCHEMA_VERSION,
+    announcement,
+    header: resolveHeader(published.header),
+    footer: resolveFooter(published.footer),
+    seo,
+    sections,
+    fromCms: true,
+  };
 }
 
 /** Switched-on items that may be shown now; COD-only ones need COD available. */
