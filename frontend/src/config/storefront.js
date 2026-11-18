@@ -188,6 +188,7 @@ export function defaultFooter() {
       tradeName: LEGAL.tradeName,
       gstin: LEGAL.gstin,
       address: BUSINESS_ADDRESS.join('\n'),
+      layout: 'spread',
     },
     bottom: {
       copyright: `${BRAND_NAME}. All rights reserved.`,
@@ -215,6 +216,8 @@ export const PROMOTION_LAYOUTS = ['split', 'fullImage'];
 export const PROMOTION_TEXT_POSITIONS = ['left', 'center', 'right'];
 export const PROMOTION_OVERLAYS = ['light', 'medium', 'dark'];
 export const PROMOTION_IMAGE_FITS = ['contain', 'cover'];
+/** How the footer's business details divide the room they are given. */
+export const FOOTER_DETAIL_LAYOUTS = ['spread', 'compact'];
 export const STOREFRONT_LIMITS = Object.freeze({
   sections: 24,
   announcement: 6,

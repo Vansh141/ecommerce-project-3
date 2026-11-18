@@ -62,6 +62,8 @@ const EDITORIAL_DISPLAYS = ['split', 'fullImage'];
 const TEXT_POSITIONS = ['left', 'center', 'right'];
 const OVERLAYS = ['light', 'medium', 'dark'];
 const ALIGNMENTS = ['left', 'center'];
+/** Footer business details: sharing the full width, or sitting close together. */
+const FOOTER_DETAIL_LAYOUTS = ['spread', 'compact'];
 const BRAND_THEMES = ['plain', 'sand'];
 
 const LIMITS = Object.freeze({
@@ -201,6 +203,7 @@ StorefrontContent.OPTIONS = Object.freeze({
   OVERLAYS,
   ALIGNMENTS,
   BRAND_THEMES,
+  FOOTER_DETAIL_LAYOUTS,
   LIMITS,
 });
 

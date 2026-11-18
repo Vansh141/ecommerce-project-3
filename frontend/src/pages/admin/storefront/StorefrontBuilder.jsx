@@ -133,6 +133,7 @@ function editableFooter(raw) {
       tradeName: str(footer.legal.tradeName),
       gstin: str(footer.legal.gstin),
       address: str(footer.legal.address),
+      layout: footer.legal.layout === 'compact' ? 'compact' : 'spread',
     },
     bottom: { copyright: str(footer.bottom.copyright), links: linkList(footer.bottom.links) },
   };

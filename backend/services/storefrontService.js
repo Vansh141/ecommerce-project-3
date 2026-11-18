@@ -7,7 +7,7 @@ const StorefrontContent = require('../models/StorefrontContent');
 const {
   ICONS, TONES, SHOW_WHEN, SECTION_TYPES, HERO_MODES, HERO_INTERVALS, HERO_SIZES,ANNOUNCEMENT_MOTIONS, ANNOUNCEMENT_DIRECTIONS, ANNOUNCEMENT_SPEEDS, EDITORIAL_DISPLAYS, TEXT_POSITIONS, OVERLAYS, CATEGORY_SOURCES, PRODUCT_SOURCES,
   CAMPAIGN_SOURCES, CAMPAIGN_LAYOUTS, IMAGE_FITS, COLLECTION_LAYOUTS, DESKTOP_COLUMNS, EDITORIAL_LAYOUTS, EDITORIAL_THEMES,
-  ALIGNMENTS, BRAND_THEMES, LIMITS,
+  ALIGNMENTS, BRAND_THEMES, FOOTER_DETAIL_LAYOUTS, LIMITS,
 } = StorefrontContent.OPTIONS;
 
 /**
@@ -308,6 +308,7 @@ function footerContent(raw, v) {
       tradeName: v.text(legal.tradeName, 'footer.legal.tradeName', 'Trade name', { max: 120 }),
       gstin: v.text(legal.gstin, 'footer.legal.gstin', 'GSTIN', { max: 20 }),
       address: v.text(legal.address, 'footer.legal.address', 'Business address', { max: 300, multiline: true }),
+      layout: v.option(legal.layout, FOOTER_DETAIL_LAYOUTS, 'footer.legal.layout', 'Business details layout', 'spread'),
     },
     bottom: {
       copyright: v.text(bottom.copyright, 'footer.bottom.copyright', 'Copyright line', { max: 120 }),

@@ -1347,6 +1347,8 @@ export function HeaderEditor() {
 }
 
 export function FooterEditor() {
+  const { form, update } = useEditor();
+
   return (
     <div className="space-y-5">
       <Card title="About your store" description="The short line under your logo at the bottom of every page.">
@@ -1442,6 +1444,19 @@ export function FooterEditor() {
           multiline
           rows={4}
         />
+        <SegmentedControl
+          label="How these details are arranged"
+          value={form.footer.legal.layout}
+          onChange={(value) => update(['footer', 'legal', 'layout'], value)}
+          options={[
+            ['spread', 'Spread out', 'The details share the full width of the footer.'],
+            ['compact', 'Close together', 'Each detail takes only the room it needs, and they sit together on the left.'],
+          ]}
+        />
+        <p className="text-xs text-ink-faint">
+          Details you leave empty are not shown, and the rest move up to share the space — so the footer stays even
+          whichever ones you fill in.
+        </p>
       </Card>
 
       <Card title="Bottom line" description="The very last line of the page.">

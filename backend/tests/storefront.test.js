@@ -824,6 +824,8 @@ describe('Storefront homepage builder', () => {
       expect(footer.contact.email).toBe('hello@touchh.in');
       expect(footer.legal.address).toContain('Howrah, West Bengal, 711403');
       expect(footer.newsletter.enabled).toBe(false);
+      // Business details share the footer's width unless the owner asks for them close together.
+      expect(footer.legal.layout).toBe('spread');
     });
 
     it('stores a logo like any other uploaded image, without its storage reference', async () => {
@@ -901,6 +903,7 @@ describe('Storefront homepage builder', () => {
       await rejects((c) => { c.footer = { contact: { phone: 'call us anytime' } }; }, 'footer.contact.phone');
       await rejects((c) => { c.footer = { legal: { legalName: '<b>RNR CREATIONS</b>' } }; }, 'footer.legal.legalName');
       await rejects((c) => { c.footer = { social: { instagram: '//evil.example.com' } }; }, 'footer.social.instagram');
+      await rejects((c) => { c.footer = { legal: { layout: 'diagonal' } }; }, 'footer.legal.layout');
     });
 
     it('stores only whitelisted fields', async () => {
